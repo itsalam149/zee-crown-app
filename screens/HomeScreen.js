@@ -1,5 +1,11 @@
+// screens/HomeScreen.js
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, StyleSheet, FlatList, ScrollView, TouchableOpacity } from 'react-native';
 import { Entypo, Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
+import { supabase } from '../lib/supabase'; // Import the Supabase client
+
+// ... (keep the rest of your imports)
 import CategoryItem from 'components/CategoryItem';
 import ImageSlideShow from 'components/ImageSlideShow';
 import ProductCard from 'components/ProductCard';
@@ -9,94 +15,79 @@ import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import FilterModal from 'model/FilterModal';
-import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, FlatList, ScrollView, Image, TouchableOpacity } from 'react-native';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
-import { products, categories } from 'utils/data';
+import { categories } from 'utils/data';
 import { normalizeX, normalizeY } from 'utils/normalize';
 
 function HomeScreen({ navigation }) {
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selected, setSelected] = useState('All');
-  const [data, setData] = useState(products);
+  const [products, setProducts] = useState([]); // State to hold products
+  const [loading, setLoading] = useState(true); // State for loading indicator
   const [key, setKey] = useState(0);
 
-  // useFocusEffect(
-  //   useCallback(() => {
-  //     setKey((prevKey) => prevKey + 1);
-  //   }, [])
-  // );
+  useEffect(() => {
+    fetchProducts();
+  }, []);
 
-  const handleFilter = (category) => {
-    setSelected(category);
-    setData([]);
-    setTimeout(() => {
-      if (category === 'All') {
-        setData(products);
-      } else {
-        const filteredData = products.filter((item) => item.category === category);
-        setData(filteredData);
-      }
-    }, 50);
+  const fetchProducts = async () => {
+    setLoading(true);
+    const { data, error } = await supabase.from('products').select('*');
+    if (error) {
+      console.error('Error fetching products:', error);
+    } else {
+      setProducts(data);
+    }
+    setLoading(false);
   };
+
+  const handleFilter = async (category) => {
+    setSelected(category);
+    setLoading(true);
+    let query = supabase.from('products').select('*');
+    if (category !== 'All') {
+      query = query.eq('category', category);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error('Error filtering products:', error);
+    } else {
+      setProducts(data);
+    }
+    setLoading(false);
+  };
+
+  // ... (rest of your component remains the same)
+
   return (
     <ScreenComponent style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.iconBg}>
-          <Entypo name="grid" size={24} color="black" />
-        </View>
-        <TouchableOpacity
-          style={styles.iconBg}
-          onPress={() => navigation.navigate('Notifications')}>
-          <Ionicons name="notifications-outline" size={24} color="black" />
-        </TouchableOpacity>
-      </View>
-
-      <SearchBar onPress={() => setFilterModalVisible(true)} />
+      {/* ... (your existing JSX for header, search bar, etc.) */}
       <ScrollView
         contentContainerStyle={{ paddingBottom: spacingY._60 }}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+      >
         <ImageSlideShow />
 
         <FlatList
           data={categories}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.catContainer}
-          keyExtractor={(item, index) => index.toString()}
-          renderItem={({ item, index }) => {
-            const isSelected = selected == item.name;
-            return (
-              <CategoryItem
-                item={item}
-                onPress={handleFilter}
-                isSelected={isSelected}
-                index={index}
-                key={index}
-                keyValue={key}
-              />
-            );
-          }}
+        // ... (rest of your FlatList props)
         />
+
         <View style={styles.headingContainer}>
           <Typo size={18} style={{ fontWeight: '600' }}>
             Special For You
           </Typo>
           <Typo style={{ color: colors.gray }}>See all</Typo>
         </View>
-        {/* <ScrollView horizontal contentContainerStyle={{ flexGrow: 1 }}> */}
-        {data.length > 0 && (
+
+        {loading ? (
+          <Typo style={{ textAlign: 'center', marginTop: 20 }}>Loading products...</Typo>
+        ) : (
           <FlatList
             scrollEnabled={false}
             numColumns={2}
-            data={data}
-            keyExtractor={(item, index) => index.toString()}
-            contentContainerStyle={{
-              gap: spacingX._20,
-              paddingHorizontal: spacingX._20,
-              paddingTop: spacingY._15,
-            }}
-            columnWrapperStyle={{ gap: spacingX._20 }}
+            data={products}
+            keyExtractor={(item) => item.id.toString()}
+            // ... (rest of your FlatList props)
             renderItem={({ item, index }) => {
               return (
                 <Animated.View
@@ -111,13 +102,12 @@ function HomeScreen({ navigation }) {
             }}
           />
         )}
-
-        {/* </ScrollView> */}
       </ScrollView>
       <FilterModal visible={filterModalVisible} setVisible={setFilterModalVisible} />
     </ScreenComponent>
   );
 }
+// ... (your existing styles)
 const styles = StyleSheet.create({
   container: {
     paddingBottom: spacingY._20,
@@ -158,5 +148,6 @@ const styles = StyleSheet.create({
     marginHorizontal: spacingX._15,
   },
 });
+
 
 export default HomeScreen;
