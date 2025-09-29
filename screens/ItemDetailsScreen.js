@@ -1,7 +1,6 @@
 import { AntDesign, MaterialIcons } from '@expo/vector-icons';
 import { border } from '@shopify/restyle';
 import AppButton from 'components/AppButton';
-import DetailsSelector from 'components/DetailsSelector';
 import ItemImageSlider from 'components/ItemImageSlider';
 import Typo from 'components/Typo';
 import colors from 'config/colors';
@@ -70,7 +69,26 @@ function ItemDetailsScreen({ route, navigation }) {
               </TouchableOpacity>
             ))}
           </View>
-          <DetailsSelector selected={selected} setSelected={setSelected} />
+          <View style={styles.detailsSelector}>
+            {['Description', 'Specs', 'Reviews'].map((option) => (
+              <TouchableOpacity
+                key={option}
+                style={[
+                  styles.selectorButton,
+                  selected === option && styles.selectedButton,
+                ]}
+                onPress={() => setSelected(option)}>
+                <Typo
+                  size={14}
+                  style={[
+                    styles.selectorText,
+                    selected === option && styles.selectedText,
+                  ]}>
+                  {option}
+                </Typo>
+              </TouchableOpacity>
+            ))}
+          </View>
           {selected == 'Description' ? (
             <Typo style={{ color: colors.gray }}>
               Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum
@@ -206,6 +224,33 @@ const styles = StyleSheet.create({
     marginStart: spacingX._5,
   },
   count: {
+    color: colors.white,
+    fontWeight: '600',
+  },
+  detailsSelector: {
+    flexDirection: 'row',
+    backgroundColor: colors.lightGray || '#F5F5F5',
+    borderRadius: radius._25 || 25,
+    padding: normalizeY(4),
+    marginTop: spacingY._15,
+    marginBottom: spacingY._10,
+  },
+  selectorButton: {
+    flex: 1,
+    paddingVertical: normalizeY(8),
+    paddingHorizontal: normalizeX(12),
+    borderRadius: radius._20 || 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  selectedButton: {
+    backgroundColor: colors.primary || colors.black,
+  },
+  selectorText: {
+    color: colors.gray || '#666',
+    fontWeight: '500',
+  },
+  selectedText: {
     color: colors.white,
     fontWeight: '600',
   },
