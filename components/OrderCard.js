@@ -39,7 +39,7 @@ function OrderCard({ item: order }) {
                     return (
                         <View key={orderItem.id} style={styles.itemRow}>
                             <Image
-                                // FINAL FIX: Using a known existing asset as a fallback
+                                // FINAL FIX: Using a known existing asset as a fallback to prevent crashes
                                 source={finalImageUrl ? { uri: finalImageUrl } : require('../assets/startImage.png')}
                                 style={styles.productImage}
                             />
