@@ -4,7 +4,7 @@ import {
   View,
   SafeAreaView,
   Dimensions,
-  Platform,
+  Platform, // <-- ADDED THIS IMPORT
   TextInput,
   TouchableOpacity,
 } from 'react-native';

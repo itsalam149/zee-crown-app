@@ -30,28 +30,27 @@ function AddressesScreen() {
     const [country, setCountry] = useState('');
     const [mobileNumber, setMobileNumber] = useState('');
 
-    const fetchData = useCallback(() => {
-        async function getAddresses() {
-            if (!user) { setLoading(false); return; };
-            setLoading(true);
-            // Corrected Query: Removed the .order() clause that was causing the crash
-            const { data, error } = await supabase
-                .from('addresses')
-                .select('*')
-                .eq('user_id', user.id);
+    // FIXED: Correctly implemented useFocusEffect
+    useFocusEffect(
+        useCallback(() => {
+            async function getAddresses() {
+                if (!user) { setLoading(false); return; };
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('addresses')
+                    .select('*')
+                    .eq('user_id', user.id);
 
-            if (error) {
-                Toast.show({ type: 'error', text1: 'Error', text2: 'Could not fetch addresses.' });
-            } else {
-                setAddresses(data);
+                if (error) {
+                    Toast.show({ type: 'error', text1: 'Error', text2: 'Could not fetch addresses.' });
+                } else {
+                    setAddresses(data);
+                }
+                setLoading(false);
             }
-            setLoading(false);
-        }
-        getAddresses();
-    }, [user]);
-
-    // Corrected hook structure
-    useFocusEffect(fetchData);
+            getAddresses();
+        }, [user])
+    );
 
     const clearForm = () => {
         setHouseNo('');
@@ -81,7 +80,8 @@ function AddressesScreen() {
             Toast.show({ type: 'success', text1: 'Success!', text2: 'Address added successfully.' });
             clearForm();
             setShowAddAddress(false);
-            fetchData();
+            const { data } = await supabase.from('addresses').select('*').eq('user_id', user.id);
+            if (data) setAddresses(data);
         }
     };
 
@@ -95,7 +95,8 @@ function AddressesScreen() {
                         Toast.show({ type: 'error', text1: 'Error', text2: 'Could not delete address.' });
                     } else {
                         Toast.show({ type: 'success', text1: 'Success!', text2: 'Address deleted.' });
-                        fetchData();
+                        const { data } = await supabase.from('addresses').select('*').eq('user_id', user.id);
+                        if (data) setAddresses(data);
                     }
                 }
             }

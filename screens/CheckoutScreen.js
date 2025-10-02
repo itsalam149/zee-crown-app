@@ -1,7 +1,6 @@
 // screens/CheckoutScreen.js
 import React, { useState, useCallback } from 'react';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
-// FIXED: Added Platform to the import list
 import { View, StyleSheet, FlatList, TouchableOpacity, Alert, TextInput, ScrollView, Dimensions, ActivityIndicator, Platform } from 'react-native';
 import { supabase } from '../lib/supabase';
 import useAuth from '../auth/useAuth';
@@ -37,26 +36,34 @@ function CheckoutScreen() {
   const [country, setCountry] = useState('');
   const [mobileNumber, setMobileNumber] = useState('');
 
-  const fetchData = useCallback(async () => {
-    if (!user) return;
-    setLoading(true);
-    const [addressRes, cartRes] = await Promise.all([
-      supabase.from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false }),
-      supabase.from('cart_items').select('*, products(*)').eq('user_id', user.id)
-    ]);
+  // FIXED: Correctly implemented useFocusEffect
+  useFocusEffect(
+    useCallback(() => {
+      async function fetchData() {
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+        setLoading(true);
+        const [addressRes, cartRes] = await Promise.all([
+          supabase.from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false }),
+          supabase.from('cart_items').select('*, products(*)').eq('user_id', user.id)
+        ]);
 
-    if (addressRes.data) {
-      setAddresses(addressRes.data);
-      if (addressRes.data.length > 0) {
-        setSelectedAddress(addressRes.data[0].id);
+        if (addressRes.data) {
+          setAddresses(addressRes.data);
+          if (addressRes.data.length > 0) {
+            setSelectedAddress(addressRes.data[0].id);
+          }
+        }
+
+        if (cartRes.data) setCartItems(cartRes.data);
+        setLoading(false);
       }
-    }
 
-    if (cartRes.data) setCartItems(cartRes.data);
-    setLoading(false);
-  }, [user]);
-
-  useFocusEffect(fetchData);
+      fetchData();
+    }, [user])
+  );
 
   const handleAddAddress = async () => {
     if (!houseNo || !street || !city || !state || !postalCode || !country || !mobileNumber) {
@@ -71,7 +78,9 @@ function CheckoutScreen() {
     } else {
       Toast.show({ type: 'success', text1: 'Success!', text2: 'Address added successfully.' });
       setShowAddAddress(false);
-      fetchData();
+      // Re-fetch data after adding
+      const { data } = await supabase.from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false });
+      if (data) setAddresses(data);
     }
   };
 

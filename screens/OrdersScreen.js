@@ -1,56 +1,72 @@
 // screens/OrdersScreen.js
 import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, FlatList } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, FlatList, ActivityIndicator } from 'react-native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import useAuth from '../auth/useAuth';
 import ScreenComponent from 'components/ScreenComponent';
 import Header from 'components/Header';
 import Typo from 'components/Typo';
 import colors from 'config/colors';
-import { radius, spacingX, spacingY } from 'config/spacing';
+import { spacingX, spacingY } from 'config/spacing';
+import { Feather } from '@expo/vector-icons';
+import AppButton from 'components/AppButton';
+import OrderCard from '../components/OrderCard';
+import OrderCardSkeleton from '../components/OrderCardSkeleton';
 
 function OrdersScreen() {
     const { user } = useAuth();
+    const navigation = useNavigation();
     const [orders, setOrders] = useState([]);
     const [loading, setLoading] = useState(true);
 
-    const fetchOrders = async () => {
-        if (!user) return;
-        setLoading(true);
-        const { data, error } = await supabase
-            .from('orders')
-            .select('*, order_items(*, products(*))') // Fetch orders with items and product details
-            .eq('user_id', user.id)
-            .order('created_at', { ascending: false });
+    // FIXED: Correctly implemented useFocusEffect
+    useFocusEffect(
+        useCallback(() => {
+            async function fetchOrders() {
+                if (!user) {
+                    setLoading(false);
+                    return;
+                };
+                setLoading(true);
+                const { data, error } = await supabase
+                    .from('orders')
+                    .select('*, order_items(*, products(name, image_url))')
+                    .eq('user_id', user.id)
+                    .order('created_at', { ascending: false });
 
-        if (error) {
-            console.error("Error fetching orders:", error);
-        } else {
-            setOrders(data);
-        }
-        setLoading(false);
-    };
+                if (error) {
+                    console.error("Error fetching orders:", error);
+                } else {
+                    setOrders(data);
+                }
+                setLoading(false);
+            }
 
-    useFocusEffect(useCallback(() => { fetchOrders(); }, [user]));
+            fetchOrders();
+        }, [user])
+    );
 
-    const OrderCard = ({ item }) => (
-        <View style={styles.orderCard}>
-            <View style={styles.cardHeader}>
-                <Typo style={styles.orderId}>Order #{item.id.substring(0, 8)}</Typo>
-                <Typo style={styles.orderDate}>{new Date(item.created_at).toLocaleDateString()}</Typo>
+    const renderSkeleton = () => (
+        <View style={styles.list}>
+            {[...Array(3)].map((_, index) => <OrderCardSkeleton key={index} />)}
+        </View>
+    );
+
+    const renderEmptyState = () => (
+        <View style={styles.centerContent}>
+            <View style={styles.emptyIconBg}>
+                <Feather name="box" size={40} color={colors.primary} />
             </View>
-            <View style={styles.cardBody}>
-                {item.order_items.map(orderItem => (
-                    <View key={orderItem.id} style={styles.productRow}>
-                        <Typo style={{ flex: 1 }}>{orderItem.products.name} (x{orderItem.quantity})</Typo>
-                        <Typo>₹{(orderItem.price * orderItem.quantity).toFixed(2)}</Typo>
-                    </View>
-                ))}
-            </View>
-            <View style={styles.cardFooter}>
-                <Typo style={styles.totalText}>Total: ₹{item.total_amount}</Typo>
-            </View>
+            <Typo size={18} style={styles.emptyTitle}>No Orders Yet</Typo>
+            <Typo style={styles.emptySubtitle}>
+                You haven't placed any orders. When you do, they will appear here.
+            </Typo>
+            <AppButton
+                label="Start Shopping"
+                onPress={() => navigation.navigate('Home')}
+                style={{ marginTop: spacingY._20, width: '60%' }}
+            />
         </View>
     );
 
@@ -58,15 +74,16 @@ function OrdersScreen() {
         <ScreenComponent style={styles.container}>
             <Header label="My Orders" />
             {loading ? (
-                <View style={styles.centerContent}><Typo>Loading orders...</Typo></View>
+                renderSkeleton()
             ) : orders.length === 0 ? (
-                <View style={styles.centerContent}><Typo>You haven't placed any orders yet.</Typo></View>
+                renderEmptyState()
             ) : (
                 <FlatList
                     data={orders}
                     renderItem={({ item }) => <OrderCard item={item} />}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.list}
+                    showsVerticalScrollIndicator={false}
                 />
             )}
         </ScreenComponent>
@@ -74,41 +91,30 @@ function OrdersScreen() {
 }
 
 const styles = StyleSheet.create({
-    container: { backgroundColor: colors.white },
-    centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    container: { backgroundColor: colors.grayBG },
     list: { padding: spacingX._20 },
-    orderCard: {
+    centerContent: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: spacingX._40
+    },
+    emptyIconBg: {
         backgroundColor: colors.lighterGray,
-        borderRadius: radius._15,
-        marginBottom: spacingY._20,
-        padding: spacingX._15,
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    cardHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        paddingBottom: spacingY._10,
-        borderBottomWidth: 1,
-        borderBottomColor: colors.lightGray,
+    emptyTitle: {
+        fontWeight: '600',
+        marginTop: spacingY._20
     },
-    orderId: { fontWeight: 'bold' },
-    orderDate: { color: colors.gray },
-    cardBody: {
-        paddingVertical: spacingY._10,
-    },
-    productRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginVertical: 2,
-    },
-    cardFooter: {
-        paddingTop: spacingY._10,
-        borderTopWidth: 1,
-        borderTopColor: colors.lightGray,
-        alignItems: 'flex-end',
-    },
-    totalText: {
-        fontWeight: 'bold',
-        fontSize: 16,
+    emptySubtitle: {
+        color: colors.gray,
+        textAlign: 'center',
+        marginTop: spacingY._10
     },
 });
 
