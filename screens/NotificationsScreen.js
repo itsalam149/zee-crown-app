@@ -1,8 +1,8 @@
-import React, { useRef } from 'react';
+// screens/NotificationsScreen.js
+import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, View, Animated } from 'react-native';
-
+import { supabase } from '../lib/supabase'; // Import the Supabase client
 import colors from '../config/colors';
-import { notifications } from 'utils/data';
 import ScreenComponent from 'components/ScreenComponent';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import { AntDesign } from '@expo/vector-icons';
@@ -11,10 +11,44 @@ import { normalizeY } from 'utils/normalize';
 import Header from 'components/Header';
 
 function NotificationsScreen({ navigation }) {
+  const [notifications, setNotifications] = useState([]);
+  const [loading, setLoading] = useState(true);
   const scrollY = useRef(new Animated.Value(0)).current;
   const SPACING = spacingY._20;
   const CARD_HEIGHT = normalizeY(55);
   const ITEM_SIZE = CARD_HEIGHT + SPACING * 3;
+
+  useEffect(() => {
+    fetchNotifications();
+  }, []);
+
+  const fetchNotifications = async () => {
+    setLoading(true);
+    // Fetch notifications, ordered by the newest first
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error fetching notifications:', error);
+    } else {
+      setNotifications(data);
+    }
+    setLoading(false);
+  };
+
+  // Show a loading indicator while fetching data
+  if (loading) {
+    return (
+      <ScreenComponent style={styles.container}>
+        <Header label={'Notifications'} />
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Typo>Loading notifications...</Typo>
+        </View>
+      </ScreenComponent>
+    );
+  }
 
   return (
     <ScreenComponent style={styles.container}>
@@ -24,11 +58,11 @@ function NotificationsScreen({ navigation }) {
           useNativeDriver: true,
         })}
         showsVerticalScrollIndicator={false}
-        data={notifications}
+        data={notifications} // Use data from state
         contentContainerStyle={{
           padding: SPACING,
         }}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={({ item, index }) => {
           const inputRange = [-1, 0, ITEM_SIZE * index, ITEM_SIZE * (index + 2)];
           const scale = scrollY.interpolate({
@@ -40,7 +74,7 @@ function NotificationsScreen({ navigation }) {
             outputRange: [1, 1, 1, 0],
           });
 
-          const isRead = item.isRead;
+          const isRead = item.is_read; // Use is_read from your database
           return (
             <Animated.View
               style={[
@@ -74,7 +108,7 @@ function NotificationsScreen({ navigation }) {
                 </View>
 
                 <Typo numberOfLines={2} style={{ color: colors.gray }}>
-                  {item.body}
+                  {item.message}
                 </Typo>
                 <View
                   style={{
@@ -83,8 +117,9 @@ function NotificationsScreen({ navigation }) {
                     alignItems: 'center',
                     gap: spacingX._5,
                   }}>
-                  <AntDesign name="clockcircle" size={14} color={colors.primary} />
-                  <Typo style={styles.dateTxt}>{item.date}</Typo>
+                  {/* Corrected icon name from 'clockcircle' to 'clockcircleo' */}
+                  <AntDesign name="clockcircleo" size={14} color={colors.primary} />
+                  <Typo style={styles.dateTxt}>{new Date(item.created_at).toLocaleDateString()}</Typo>
                 </View>
               </View>
             </Animated.View>
@@ -122,4 +157,5 @@ const styles = StyleSheet.create({
     borderRadius: radius._10,
   },
 });
+
 export default NotificationsScreen;

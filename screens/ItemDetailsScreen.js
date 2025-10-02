@@ -1,258 +1,279 @@
-import { AntDesign, MaterialIcons } from '@expo/vector-icons';
-import { border } from '@shopify/restyle';
-import AppButton from 'components/AppButton';
-import ItemImageSlider from 'components/ItemImageSlider';
+// screens/ItemDetailsScreen.js
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { BlurView } from 'expo-blur';
 import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
-import React, { useState } from 'react';
-import { View, StyleSheet, Platform, Dimensions, ScrollView, TouchableOpacity } from 'react-native';
-import { normalizeX, normalizeY } from 'utils/normalize';
-const { height } = Dimensions.get('screen');
+import React, { useEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Dimensions,
+  Modal,
+  Platform, // <-- FIXED: Added the missing Platform import
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
+import useAuth from '../auth/useAuth';
+import ItemImageSlider from '../components/ItemImageSlider';
+import { supabase } from '../lib/supabase';
+
+const { height, width } = Dimensions.get('screen');
+
+// A less intrusive "Toast" notification for success messages
+const SuccessToast = ({ message, visible }) => {
+  const opacity = useSharedValue(0);
+  const scale = useSharedValue(0.8);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+    transform: [{ scale: scale.value }],
+  }));
+
+  useEffect(() => {
+    if (visible) {
+      opacity.value = withTiming(1, { duration: 200 });
+      scale.value = withSpring(1, { damping: 15, stiffness: 100 });
+    } else {
+      opacity.value = withTiming(0, { duration: 200 });
+      scale.value = withTiming(0.8);
+    }
+  }, [visible]);
+
+  return (
+    <View style={styles.toastWrapper} pointerEvents="none">
+      <Animated.View style={[styles.toastContainer, animatedStyle]}>
+        <MaterialIcons name="check-circle" size={32} color={colors.white} />
+        <Typo style={styles.toastText}>{message}</Typo>
+      </Animated.View>
+    </View>
+  );
+};
 
 function ItemDetailsScreen({ route, navigation }) {
-  const iconSize = 18;
-  const item = route.params;
-  const [selectedColor, setSelectedColor] = useState(colors.dot1);
-  const [selected, setSelected] = useState('Description');
-  const allColors = [colors.dot1, colors.dot2, colors.dot3, colors.dot4, colors.gray];
+  const iconSize = 22;
+  const { item } = route.params;
+  const { user } = useAuth();
+  const [quantity, setQuantity] = useState(1);
+  const [loading, setLoading] = useState(false);
+  const [showLoginPopup, setShowLoginPopup] = useState(false);
+  const [showSuccessToast, setShowSuccessToast] = useState(false);
+
+  const modalScale = useSharedValue(0);
+
+  const animatedModalStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: modalScale.value }],
+  }));
+
+  const showLoginPrompt = () => {
+    setShowLoginPopup(true);
+    modalScale.value = withSpring(1, { tension: 50, friction: 7 });
+  };
+
+  const hideLoginPrompt = () => {
+    modalScale.value = withTiming(0, { duration: 200 });
+    setTimeout(() => setShowLoginPopup(false), 200);
+  };
+
+  const triggerSuccessToast = () => {
+    setShowSuccessToast(true);
+    setTimeout(() => setShowSuccessToast(false), 2000);
+  };
+
+  const addToCart = async () => {
+    if (!user) return showLoginPrompt();
+    setLoading(true);
+    const { error } = await supabase.from('cart_items').upsert({
+      user_id: user.id,
+      product_id: item.id,
+      quantity: quantity,
+    }, { onConflict: 'user_id, product_id' });
+    setLoading(false);
+    if (error) {
+      console.error('Error adding to cart:', error);
+    } else {
+      triggerSuccessToast();
+    }
+  };
+
   return (
-    <View style={styles.container}>
-      <ItemImageSlider images={Array(5).fill(item.url)} />
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.iconBg} onPress={() => navigation.goBack()}>
-          <MaterialIcons name="arrow-back-ios-new" size={iconSize} color="black" />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <View style={styles.iconBg}>
-          <AntDesign name="sharealt" size={iconSize} color="black" />
-        </View>
-        <View style={styles.iconBg}>
-          <AntDesign name="hearto" size={iconSize} color="black" />
-        </View>
-      </View>
-      <View style={styles.bottomContainer}>
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: '30%' }}>
-          <Typo size={24} style={{ fontWeight: '600' }}>
-            {item.name}
-          </Typo>
-          <Typo size={20} style={styles.price}>
-            {item.price}
-          </Typo>
-          <Typo size={16} style={styles.seller}>
-            Seller: Syed Noman
-          </Typo>
-          <View style={styles.ratingRow}>
-            <View style={styles.ratingView}>
-              <AntDesign name="star" size={12} color={colors.white} />
-              <Typo size={12} style={{ color: colors.white }}>
-                4.8
-              </Typo>
+    <SafeAreaView style={styles.container}>
+      <View style={{ flex: 1 }}>
+        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+          <ItemImageSlider images={item.image_url} />
+
+          <View style={styles.detailsContainer}>
+            <Typo size={24} style={styles.titleText}>{item.name}</Typo>
+
+            <View style={styles.subHeaderContainer}>
+              <Typo size={28} style={styles.priceText}>₹{item.price}</Typo>
             </View>
-            <Typo style={{ color: colors.gray }}> (320 Review)</Typo>
+
+            <View style={styles.divider} />
+
+            <Typo size={18} style={styles.sectionTitle}>Description</Typo>
+            <Typo style={styles.descriptionText}>{item.description}</Typo>
+
+            <View style={styles.divider} />
+
+            <View style={styles.quantityContainer}>
+              <Typo size={18} style={styles.sectionTitle}>Quantity</Typo>
+              <View style={styles.countView}>
+                <TouchableOpacity onPress={() => setQuantity(Math.max(1, quantity - 1))}>
+                  <Typo size={22} style={styles.countButton}>-</Typo>
+                </TouchableOpacity>
+                <Typo size={20} style={styles.countText}>{quantity}</Typo>
+                <TouchableOpacity onPress={() => setQuantity(quantity + 1)}>
+                  <Typo size={22} style={styles.countButton}>+</Typo>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
-          <Typo size={18} style={styles.colorTxt}>
-            Color
-          </Typo>
-          <View style={{ flexDirection: 'row', gap: spacingX._5 }}>
-            {allColors.map((color, index) => (
-              <TouchableOpacity
-                key={index}
-                style={[
-                  styles.border,
-                  { borderColor: selectedColor === color ? colors.black : colors.white },
-                ]}
-                onPress={() => setSelectedColor(color)}>
-                <View style={[styles.dot, { backgroundColor: color }]} />
-              </TouchableOpacity>
-            ))}
-          </View>
-          <View style={styles.detailsSelector}>
-            {['Description', 'Specs', 'Reviews'].map((option) => (
-              <TouchableOpacity
-                key={option}
-                style={[
-                  styles.selectorButton,
-                  selected === option && styles.selectedButton,
-                ]}
-                onPress={() => setSelected(option)}>
-                <Typo
-                  size={14}
-                  style={[
-                    styles.selectorText,
-                    selected === option && styles.selectedText,
-                  ]}>
-                  {option}
-                </Typo>
-              </TouchableOpacity>
-            ))}
-          </View>
-          {selected == 'Description' ? (
-            <Typo style={{ color: colors.gray }}>
-              Lorem Ipsum is simply dummy text of the printing and typesetting industry. Lorem Ipsum
-              has been the industry's standard dummy text ever since the 1500s, when an unknown
-              printer took a galley of type and scrambled it to make a type specimen book. It has
-              survived not only five centuries, but also the leap into electronic typesetting,
-              remaining essentially unchanged. It was popularised in the 1960s with the release of
-              Letraset sheets containing Lorem Ipsum passages, and more recently with desktop
-              publishing software like Aldus PageMaker including versions of Lorem Ipsum.
-            </Typo>
-          ) : (
-            <Typo style={{ color: colors.gray }}>
-              The art of communication has evolved over centuries, yet the essence of conveying
-              ideas remains timeless. Throughout history, language has served as a vessel for
-              knowledge, culture, and expression. From the ancient scrolls of the scholars to the
-              printed manuscripts of the Renaissance, the written word has been a cornerstone of
-              human civilization. In the modern era, despite the advent of digital media, the
-              fundamental principles of writing have endured. Whether through the pages of a
-              well-worn book or the pixels on a screen, the power of words
-            </Typo>
-          )}
         </ScrollView>
-        <View style={styles.buttonContainer}>
-          <View style={styles.countView}>
-            <Typo size={20} style={styles.count}>
-              -
-            </Typo>
-            <Typo size={20} style={styles.count}>
-              1
-            </Typo>
-            <Typo size={20} style={styles.count}>
-              +
-            </Typo>
-          </View>
-          <AppButton
-            style={{ width: '60%', marginTop: 0 }}
-            onPress={() => navigation.navigate('Cart')}
-            label={'Add to Cart'}
-          />
+
+        <View style={styles.footer}>
+          <Pressable style={({ pressed }) => [styles.addToCartButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={addToCart} disabled={loading}>
+            {loading ? <ActivityIndicator size="small" color={colors.white} /> : <Typo style={styles.addToCartLabel}>Add to Cart</Typo>}
+          </Pressable>
+        </View>
+
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => navigation.goBack()}>
+            <BlurView intensity={80} tint="light" style={styles.iconBg}>
+              <MaterialIcons name="arrow-back-ios-new" size={iconSize} color="black" />
+            </BlurView>
+          </TouchableOpacity>
         </View>
       </View>
-    </View>
+
+      {showSuccessToast && <SuccessToast message={`Added to Cart!`} visible={showSuccessToast} />}
+
+      <Modal visible={showLoginPopup} transparent={true} animationType="fade">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={hideLoginPrompt}>
+          <Animated.View style={[styles.popupContainer, animatedModalStyle]}>
+            <View style={[styles.popupIconContainer, { backgroundColor: '#F44336' }]}>
+              <MaterialIcons name={'error'} size={50} color="white" />
+            </View>
+            <Typo size={24} style={styles.popupTitle}>Please Sign In</Typo>
+            <Typo size={16} style={styles.popupMessage}>You need to be logged in to add items to your cart.</Typo>
+            <TouchableOpacity style={[styles.popupButton, { backgroundColor: '#F44336' }]} onPress={hideLoginPrompt}>
+              <Typo size={16} style={styles.popupButtonText}>OK</Typo>
+            </TouchableOpacity>
+          </Animated.View>
+        </TouchableOpacity>
+      </Modal>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.white,
-  },
+  container: { flex: 1, backgroundColor: colors.white },
   header: {
-    alignItems: 'center',
-    justifyContent: 'center',
     position: 'absolute',
-    zIndex: 1,
-    marginTop: Platform.OS == 'ios' ? height * 0.06 : spacingY._10,
-    alignSelf: 'flex-end',
-    flexDirection: 'row',
-    paddingHorizontal: spacingX._20,
-    gap: spacingX._10,
-  },
-  iconBg: {
-    backgroundColor: colors.white,
-    padding: spacingY._10,
-    borderRadius: radius._20,
-  },
-  bottomContainer: {
-    flex: 1,
-    backgroundColor: colors.white,
-    marginTop: -spacingY._20,
-    borderTopLeftRadius: radius._20,
-    borderTopRightRadius: radius._20,
-    padding: spacingY._15,
-    paddingBottom: 0,
-  },
-  price: {
-    fontWeight: '600',
-    marginTop: spacingY._5,
-  },
-  seller: {
-    fontWeight: '600',
-    textAlign: 'right',
-  },
-  ratingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  ratingView: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacingX._3,
-    borderRadius: radius._12,
-    padding: normalizeY(3),
-    paddingHorizontal: normalizeX(5),
-  },
-  colorTxt: {
-    fontWeight: '600',
-    marginTop: spacingY._15,
-    marginBottom: spacingY._10,
-  },
-  border: {
-    borderWidth: 2,
-    borderRadius: spacingY._20,
-    padding: normalizeY(3),
-  },
-  dot: {
-    height: normalizeY(27),
-    width: normalizeY(27),
-    borderRadius: radius._15,
-  },
-  buttonContainer: {
-    backgroundColor: colors.black,
-    position: 'absolute',
-    bottom: spacingY._20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    padding: spacingY._10,
+    top: Platform.OS === 'ios' ? 10 : 20,
+    left: 0,
     width: '100%',
-    alignSelf: 'center',
-    borderRadius: normalizeY(40),
+    paddingHorizontal: spacingX._20,
+    zIndex: 1
+  },
+  iconBg: { height: 44, width: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', overflow: 'hidden' },
+  detailsContainer: {
+    backgroundColor: colors.white,
+    marginTop: -spacingY._30,
+    borderTopLeftRadius: radius._30,
+    borderTopRightRadius: radius._30,
+    padding: spacingX._20,
+  },
+  titleText: {
+    fontWeight: '800',
+  },
+  subHeaderContainer: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginTop: spacingY._10,
+    marginBottom: spacingY._20,
+  },
+  priceText: {
+    fontWeight: '800',
+    color: colors.primary,
+  },
+  divider: {
+    height: 1,
+    backgroundColor: colors.lightGray,
+    marginVertical: spacingY._20,
+  },
+  sectionTitle: {
+    fontWeight: '600',
+    marginBottom: spacingY._10
+  },
+  descriptionText: {
+    color: colors.gray,
+    lineHeight: 26,
+    fontSize: 16
+  },
+  quantityContainer: {
+    flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacingY._20,
   },
   countView: {
-    width: '32%',
-    borderWidth: 1,
-    borderColor: colors.white,
     flexDirection: 'row',
-    height: normalizeY(40),
-    borderRadius: radius._20,
+    backgroundColor: colors.lighterGray,
+    width: 120,
+    height: 45,
+    borderRadius: radius._30,
     alignItems: 'center',
-    justifyContent: 'space-around',
-    marginStart: spacingX._5,
+    justifyContent: 'space-between',
+    paddingHorizontal: spacingX._15
   },
-  count: {
-    color: colors.white,
-    fontWeight: '600',
+  countButton: { color: colors.dark, fontWeight: '600', fontSize: 24 },
+  countText: { color: colors.black, fontWeight: '700', fontSize: 20 },
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    paddingHorizontal: spacingX._20,
+    paddingTop: spacingY._10,
+    paddingBottom: Platform.OS === 'ios' ? 0 : spacingY._15,
+    backgroundColor: colors.white,
+    borderTopWidth: 1,
+    borderTopColor: colors.lightGray,
   },
-  detailsSelector: {
-    flexDirection: 'row',
-    backgroundColor: colors.lightGray || '#F5F5F5',
-    borderRadius: radius._25 || 25,
-    padding: normalizeY(4),
-    marginTop: spacingY._15,
-    marginBottom: spacingY._10,
-  },
-  selectorButton: {
-    flex: 1,
-    paddingVertical: normalizeY(8),
-    paddingHorizontal: normalizeX(12),
-    borderRadius: radius._20 || 20,
-    alignItems: 'center',
+  addToCartButton: {
+    backgroundColor: colors.black,
+    height: 55,
+    borderRadius: radius._30,
     justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 8
   },
-  selectedButton: {
-    backgroundColor: colors.primary || colors.black,
-  },
-  selectorText: {
-    color: colors.gray || '#666',
-    fontWeight: '500',
-  },
-  selectedText: {
-    color: colors.white,
-    fontWeight: '600',
-  },
+  addToCartLabel: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  toastWrapper: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
+  toastContainer: { backgroundColor: 'rgba(0, 0, 0, 0.8)', borderRadius: radius._20, paddingVertical: spacingY._15, paddingHorizontal: spacingX._20, flexDirection: 'column', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
+  toastText: { color: colors.white, fontWeight: '700', fontSize: 16, marginTop: spacingY._10 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.6)', justifyContent: 'center', alignItems: 'center' },
+  popupContainer: { width: width * 0.85, backgroundColor: colors.white, borderRadius: radius._30, padding: spacingY._30, alignItems: 'center' },
+  popupIconContainer: { width: 90, height: 90, borderRadius: 45, justifyContent: 'center', alignItems: 'center', marginBottom: spacingY._20, shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 10 },
+  popupTitle: { fontWeight: '700', marginBottom: spacingY._15 },
+  popupMessage: { color: colors.gray, textAlign: 'center', lineHeight: 24, marginBottom: spacingY._25 },
+  popupButton: { width: '100%', paddingVertical: spacingY._15, borderRadius: radius._20, alignItems: 'center' },
+  popupButtonText: { color: colors.white, fontWeight: '700' },
 });
+
 export default ItemDetailsScreen;

@@ -1,114 +1,86 @@
-import React, { useEffect, useState } from 'react';
-import {
-  View,
-  TouchableOpacity,
-  StyleSheet,
-  Keyboard,
-  Image,
-  Animated,
-  Dimensions,
-} from 'react-native';
-import { FontAwesome5, Ionicons, AntDesign, Feather } from '@expo/vector-icons'; // Import necessary icon sets
-import { normalizeX, normalizeY } from '../utils/normalize';
-import colors from 'config/colors';
-import { spacingX, spacingY } from 'config/spacing';
-const { width } = Dimensions.get('screen');
+// components/NewBottomTab.js
+import React from 'react';
+import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
+import colors from '../config/colors'; // Corrected path
+import { normalizeY } from '../utils/normalize';
+import Animated, { useAnimatedStyle, withSpring, withTiming, interpolate } from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 
-const NewBottomTab = ({ state, navigation }) => {
-  const [isKeyboardVisible, setKeyboardVisible] = useState(false);
-  const [selected, setSelected] = useState('Home');
-  const [endRange, setEndRange] = useState(0);
-  const [startRange, setStartRange] = useState(0);
-  const animatedValue = new Animated.Value(0);
+const { width } = Dimensions.get('window');
 
-  const tabs = [
-    { name: 'Home', iconSet: AntDesign, iconName: 'home' },
-    { name: 'Cart', iconSet: Feather, iconName: 'shopping-cart' },
-    { name: 'Favouties', iconSet: FontAwesome5, iconName: 'heart' },
-    { name: 'Profile', iconSet: Ionicons, iconName: 'person-outline' },
-  ];
-
-  const handleSelect = (routeName) => {
-    const range =
-      routeName == 'Home'
-        ? 0
-        : routeName == 'Cart'
-          ? width * 0.225
-          : routeName == 'Favourites'
-            ? width * 0.44
-            : routeName == 'Profile'
-              ? width * 0.66
-              : 0;
-    setStartRange(endRange);
-    setEndRange(range);
-    setSelected(routeName);
-    if (routeName == 'Cart') navigation.navigate('CartScreen');
-    else navigation.navigate(routeName);
-  };
-
-  useEffect(() => {
-    Animated.spring(animatedValue, {
-      toValue: 1,
-      friction: 6,
-      useNativeDriver: false,
-    }).start();
-  }, [selected]);
-
-  const translateX = animatedValue.interpolate({
-    inputRange: [0, 1],
-    outputRange: [startRange, endRange],
-  });
-
-  useEffect(() => {
-    const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => {
-      setKeyboardVisible(true);
-    });
-    const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => {
-      setKeyboardVisible(false);
-    });
-    return () => {
-      keyboardDidHideListener.remove();
-      keyboardDidShowListener.remove();
-    };
-  }, []);
-
-  // if (isKeyboardVisible) {
-  //   return <View style={{ marginVertical: -100 }}></View>;
-  // }
-
+const NewBottomTab = ({ state, descriptors, navigation }) => {
   return (
     <View style={styles.container}>
-      <View
-        style={{
-          position: 'absolute',
-          bottom: normalizeY(20),
-          right: 0,
-          left: 0,
-          marginHorizontal: '16.3%',
-        }}>
-        <Animated.View
-          style={[
-            styles.animationBar,
-            {
-              transform: [{ translateX }],
-            },
-          ]}
-        />
-      </View>
-      {tabs.map((tab, index) => {
-        const routeName = state.routes[index].name;
-        const isFocused = selected === routeName;
-        const IconComponent = tab.iconSet;
+      {state.routes.map((route, index) => {
+        const { options } = descriptors[route.key];
+        const label = options.tabBarLabel !== undefined ? options.tabBarLabel : options.title !== undefined ? options.title : route.name;
+        const isFocused = state.index === index;
+
+        let IconComponent = Ionicons;
+        let iconName;
+
+        if (route.name === 'Home') {
+          iconName = 'home';
+          IconComponent = AntDesign;
+        } else if (route.name === 'Cart') {
+          iconName = 'shopping-cart';
+          IconComponent = Feather;
+        } else if (route.name === 'Profile') {
+          iconName = 'person-outline'; // Using Ionicons for consistency here
+        }
+
+        const onPress = () => {
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
+          const event = navigation.emit({
+            type: 'tabPress',
+            target: route.key,
+            canPreventDefault: true,
+          });
+
+          if (!isFocused && !event.defaultPrevented) {
+            navigation.navigate(route.name, route.params);
+          }
+        };
+
+        const animatedIconContainerStyle = useAnimatedStyle(() => {
+          const translateY = withSpring(isFocused ? -20 : 0, {
+            damping: 15,
+            stiffness: 120,
+          });
+          const scale = withSpring(isFocused ? 1.2 : 1, {
+            damping: 15,
+            stiffness: 120,
+          });
+          return {
+            transform: [{ translateY }, { scale }],
+            backgroundColor: withTiming(isFocused ? colors.primary : 'transparent', { duration: 200 }),
+            shadowColor: withTiming(isFocused ? colors.primary : '#000', { duration: 200 }),
+            shadowOpacity: withTiming(isFocused ? 0.4 : 0.1, { duration: 200 }),
+          };
+        });
+
+        const animatedLabelStyle = useAnimatedStyle(() => {
+          return {
+            opacity: withTiming(isFocused ? 1 : 0, { duration: 200 }),
+            transform: [{ translateY: withTiming(isFocused ? 10 : 20, { duration: 200 }) }],
+          };
+        });
+
         return (
           <TouchableOpacity
             key={index}
-            style={styles.tabContent}
-            onPress={() => handleSelect(routeName)}>
-            <IconComponent
-              name={tab.iconName}
-              size={24}
-              color={isFocused ? colors.primary : colors.black}
-            />
+            accessibilityRole="button"
+            accessibilityState={isFocused ? { selected: true } : {}}
+            onPress={onPress}
+            style={styles.tabButton}
+          >
+            <Animated.View style={[styles.iconContainer, animatedIconContainerStyle]}>
+              <IconComponent name={iconName} size={24} color={isFocused ? colors.white : colors.gray} />
+            </Animated.View>
+            <Animated.Text style={[styles.label, animatedLabelStyle, { color: colors.black }]}>
+              {label}
+            </Animated.Text>
           </TouchableOpacity>
         );
       })}
@@ -116,37 +88,51 @@ const NewBottomTab = ({ state, navigation }) => {
   );
 };
 
-export default NewBottomTab;
-
 const styles = StyleSheet.create({
   container: {
-    width: '100%',
     flexDirection: 'row',
-    alignItems: 'center',
-    bottom: 0,
-    height: 75,
-    backgroundColor: colors.white,
     position: 'absolute',
-    justifyContent: 'space-evenly',
-    shadowOffset: { height: 0, width: 0 },
-    shadowOpacity: 0.1,
-    elevation: 10,
-    paddingBottom: spacingY._15,
-  },
-  tabContent: {
+    bottom: Platform.OS === 'ios' ? 35 : 25, // Adjust for iOS notch area
+    left: 20,
+    right: 20,
+    height: 75, // Slightly taller for better aesthetics
+    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Subtle translucency
+    borderRadius: 38, // More curved edges
+    elevation: 12, // More pronounced lift
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 }, // Stronger shadow for depth
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
     justifyContent: 'space-around',
     alignItems: 'center',
-    height: normalizeY(35),
-    paddingHorizontal: normalizeX(8),
+    borderWidth: StyleSheet.hairlineWidth, // Thin border
+    borderColor: 'rgba(0, 0, 0, 0.08)', // Soft border color
   },
-  icon: {
-    width: normalizeY(15),
-    height: normalizeY(15),
+  tabButton: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '100%',
   },
-  animationBar: {
-    backgroundColor: colors.primary,
-    width: normalizeX(6),
-    height: normalizeY(6),
-    borderRadius: normalizeY(8),
+  iconContainer: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'absolute',
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 8,
+  },
+  label: {
+    fontSize: normalizeY(11),
+    fontWeight: '600',
+    position: 'absolute',
+    bottom: 10,
+    // Color handled by animated style, but default for non-focused
+    color: colors.gray,
   },
 });
+
+export default NewBottomTab;

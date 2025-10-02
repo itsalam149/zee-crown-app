@@ -1,4 +1,5 @@
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+// components/CategoryItem.js
+import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import React from 'react';
 import Animated, { FadeInRight } from 'react-native-reanimated';
 import Typo from './Typo';
@@ -6,7 +7,9 @@ import { normalizeX, normalizeY } from 'utils/normalize';
 import { radius, spacingY } from 'config/spacing';
 import colors from 'config/colors';
 
-const CategoryItem = ({ item, isSelected, onPress, index, keyValue }) => {
+const CategoryItem = ({ item, isSelected, onPress, index, keyValue, themeColor }) => {
+  const Icon = item.icon;
+
   return (
     <Animated.View
       key={`${keyValue}-${index}`}
@@ -17,20 +20,20 @@ const CategoryItem = ({ item, isSelected, onPress, index, keyValue }) => {
         .springify()}>
       <TouchableOpacity
         style={{ width: '100%', alignItems: 'center' }}
-        onPress={() => onPress(item.name)}>
+        onPress={() => onPress(item)}>
         <View
           style={[
             styles.imgContainer,
             {
-              borderColor: isSelected ? colors.primary : colors.white,
+              backgroundColor: isSelected ? themeColor : colors.lighterGray, // Filled background
             },
           ]}>
-          <Image source={item.image} style={[styles.catImg]} />
+          <Icon color={isSelected ? colors.white : colors.black} size={24} />
         </View>
 
         <Typo
           size={12}
-          style={[styles.catName, { color: isSelected ? colors.primary : colors.black }]}>
+          style={[styles.catName, { color: isSelected ? themeColor : colors.black }]}>
           {item.name}
         </Typo>
       </TouchableOpacity>
@@ -44,17 +47,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   imgContainer: {
-    padding: 9,
-    backgroundColor: colors.lighterGray,
-    borderWidth: normalizeY(2),
     borderRadius: radius._30,
     height: normalizeY(52),
     width: normalizeY(52),
     marginBottom: spacingY._5,
-  },
-  catImg: {
-    height: '100%',
-    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2, // Keep a subtle border
+    borderColor: 'rgba(0,0,0,0.05)', // Very light border
   },
   catName: {
     textAlign: 'center',

@@ -1,85 +1,96 @@
-import { FontAwesome5 } from '@expo/vector-icons';
+// components/ProductCard.js
+import { useNavigation } from '@react-navigation/native';
+import Color from 'color';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import React from 'react';
-import { Dimensions, Image, View, StyleSheet, TouchableOpacity } from 'react-native';
+import { Dimensions, Image, StyleSheet, TouchableOpacity, View } from 'react-native';
 import Typo from './Typo';
-import { normalizeY } from 'utils/normalize';
-import { useNavigation } from '@react-navigation/native';
+
 const { width, height } = Dimensions.get('screen');
 
-function ProductCard({ item }) {
+function ProductCard({ item, themeColor }) { // Ensure item.category is available
   const navigation = useNavigation();
+
+  // --- STYLE LOGIC ---
+  const isAllCategory = !themeColor || themeColor === colors.primary;
+  const isCosmeticsCategory = item.category === 'Cosmetics'; // Check for Cosmetics category
+
+  let cardBackgroundColor;
+  if (isCosmeticsCategory) {
+    cardBackgroundColor = '#87CEEB'; // Sky blue for Cosmetics
+  } else if (isAllCategory) {
+    cardBackgroundColor = colors.white;
+  } else {
+    cardBackgroundColor = Color(themeColor).mix(Color('white'), 0.85).hex();
+  }
+
+  // Set the text color to always be black.
+  const textColor = colors.black;
+
+  // Common shadow styles that will be applied to all cards.
+  const shadowStyle = {
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  };
+  // --- END STYLE LOGIC ---
+
   return (
     <TouchableOpacity
-      style={styles.container}
-      onPress={() => navigation.navigate('ItemDetails', item)}>
-      <View style={styles.heartBg}>
-        <FontAwesome5 name={'heart'} size={16} color={'white'} />
+      style={[styles.containerBase, { backgroundColor: cardBackgroundColor }, shadowStyle]}
+      onPress={() => navigation.navigate('ItemDetails', { item: item, themeColor: themeColor })}>
+      <View style={styles.imgContainer}>
+        <Image source={{ uri: item.image_url }} style={styles.img} />
       </View>
-      <Image source={item.url} style={styles.img} />
-      <Typo size={13} style={styles.name}>
-        {item.name}
-      </Typo>
-      <View style={styles.dotsContainer}>
-        <Typo size={13} style={{ fontWeight: '600' }}>
-          {item.price}
+
+      <View style={styles.detailsContainer}>
+        <Typo size={14} style={[styles.name, { color: textColor }]} numberOfLines={2}>
+          {item.name}
         </Typo>
-        <View style={{ flex: 1 }} />
-        <View style={[styles.dot, { backgroundColor: colors.dot1 }]} />
-        <View style={[styles.dot, { backgroundColor: colors.dot2 }]} />
-        <View style={[styles.dot, { backgroundColor: colors.dot3 }]} />
-        <View style={[styles.dot, { backgroundColor: colors.dot4 }]} />
+        <Typo size={14} style={[styles.price, { color: textColor }]}>
+          ₹{item.price}
+        </Typo>
       </View>
     </TouchableOpacity>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    height: height * 0.21,
+  containerBase: {
     width: width / 2 - spacingX._30,
-    backgroundColor: colors.lighterGray,
     borderRadius: radius._15,
-    justifyContent: 'space-evenly',
-    paddingBottom: spacingY._15,
     overflow: 'hidden',
   },
-  heartBg: {
-    height: normalizeY(32),
-    width: normalizeY(32),
-    backgroundColor: colors.primary,
-    position: 'absolute',
-    right: 0,
-    top: 0,
-    zIndex: 1,
-    borderBottomLeftRadius: radius._10,
-    alignItems: 'center',
-    justifyContent: 'center',
+  imgContainer: {
+    height: height * 0.15,
+    width: '100%',
+    backgroundColor: colors.lighterGray,
+    borderTopLeftRadius: radius._15,
+    borderTopRightRadius: radius._15,
+    overflow: 'hidden',
   },
   img: {
-    height: '60%',
-    width: '80%',
-    resizeMode: 'contain',
-    marginVertical: spacingY._15,
-    alignSelf: 'center',
+    height: '100%',
+    width: '100%',
+    resizeMode: 'cover',
+  },
+  detailsContainer: {
+    padding: spacingX._10,
   },
   name: {
     fontWeight: '600',
-    marginStart: spacingX._10,
+    minHeight: 36,
   },
-  dotsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacingX._10,
-    paddingTop: spacingY._5,
-    gap: spacingX._3,
-  },
-  dot: {
-    height: normalizeY(14),
-    width: normalizeY(14),
-    borderRadius: radius._12,
-    backgroundColor: colors.black,
+  price: {
+    fontWeight: 'bold',
+    marginTop: spacingY._5,
   },
 });
-export default ProductCard;
+
+export default ProductCard; 

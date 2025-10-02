@@ -1,40 +1,47 @@
+// components/CartCard.js
 import React from 'react';
-import { MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import colors from 'config/colors';
-import { View, Image, Dimensions, StyleSheet } from 'react-native';
+import { View, Image, Dimensions, StyleSheet, TouchableOpacity } from 'react-native';
 import Typo from './Typo';
 import { normalizeX, normalizeY } from 'utils/normalize';
-import { spacingY } from 'config/spacing';
+import { radius, spacingY } from 'config/spacing';
+
 const { width } = Dimensions.get('screen');
 
-function CartCard({ item }) {
-  const imgSize = width * 0.2;
+function CartCard({ item, onIncrement, onDecrement, onRemove }) {
+  const imgSize = width * 0.18; // Made image smaller
+  const product = item.products;
+
   return (
     <View style={styles.container}>
       <View style={styles.imgContainer}>
         <Image
-          source={item.url}
+          source={{ uri: product.image_url }}
           resizeMode="contain"
-          style={{
-            width: imgSize,
-            height: imgSize,
-          }}
+          style={{ width: imgSize, height: imgSize }}
         />
       </View>
       <View style={{ flex: 1, justifyContent: 'space-between' }}>
         <View style={styles.row}>
-          <Typo size={17} style={{ fontWeight: 'bold' }}>
-            {item.name}
+          <Typo size={16} style={{ fontWeight: '600', flex: 1 }} numberOfLines={1}>
+            {product.name}
           </Typo>
-          <MaterialIcons name="delete-outline" size={normalizeY(24)} color={colors.primary} />
+          <TouchableOpacity onPress={onRemove}>
+            <MaterialIcons name="delete-outline" size={normalizeY(22)} color={colors.gray} />
+          </TouchableOpacity>
         </View>
-        <Typo style={styles.catText}>{item.category}</Typo>
+        <Typo style={styles.catText}>{product.category}</Typo>
         <View style={styles.row}>
-          <Typo style={{ fontWeight: 'bold' }}>{item.price}</Typo>
-          <View style={styles.countContanier}>
-            <Typo style={{ fontWeight: 'bold' }}>-</Typo>
-            <Typo style={{ fontWeight: 'bold' }}>1</Typo>
-            <Typo style={{ fontWeight: 'bold' }}>+</Typo>
+          <Typo size={16} style={{ fontWeight: 'bold' }}>₹{product.price}</Typo>
+          <View style={styles.countContainer}>
+            <TouchableOpacity onPress={onDecrement} style={styles.countButton}>
+              <Typo style={{ fontWeight: 'bold', fontSize: 18 }}>-</Typo>
+            </TouchableOpacity>
+            <Typo style={{ fontWeight: 'bold', fontSize: 16 }}>{item.quantity}</Typo>
+            <TouchableOpacity onPress={onIncrement} style={styles.countButton}>
+              <Typo style={{ fontWeight: 'bold', fontSize: 18 }}>+</Typo>
+            </TouchableOpacity>
           </View>
         </View>
       </View>
@@ -45,20 +52,21 @@ function CartCard({ item }) {
 const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
-    marginBottom: normalizeY(17),
+    marginBottom: normalizeY(15),
     backgroundColor: colors.white,
     shadowColor: colors.black,
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    padding: normalizeY(15),
-    borderRadius: normalizeY(12),
-    gap: normalizeX(10),
+    shadowOffset: { height: 4, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 5,
+    padding: normalizeY(12),
+    borderRadius: radius._15,
+    gap: normalizeX(12),
   },
   imgContainer: {
-    padding: spacingY._10,
+    padding: spacingY._5,
     backgroundColor: colors.lighterGray,
-    borderRadius: normalizeY(15),
+    borderRadius: radius._10,
   },
   row: {
     flexDirection: 'row',
@@ -67,18 +75,21 @@ const styles = StyleSheet.create({
   },
   catText: {
     color: colors.lightGray,
-    fontWeight: 'bold',
-    marginBottom: normalizeY(3),
+    fontWeight: '500',
+    fontSize: 12,
   },
-  countContanier: {
-    backgroundColor: colors.grayBG,
-    width: '35%',
+  countContainer: {
+    backgroundColor: colors.lighterGray,
+    width: '40%',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-around',
-    padding: normalizeY(5),
-    borderRadius: normalizeY(20),
+    justifyContent: 'space-between',
+    padding: normalizeY(4),
+    borderRadius: radius._20,
   },
+  countButton: {
+    paddingHorizontal: normalizeX(12),
+  }
 });
 
 export default CartCard;

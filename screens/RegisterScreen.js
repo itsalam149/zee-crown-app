@@ -1,8 +1,8 @@
+// screens/RegisterScreen.js
 import {
   StyleSheet,
   View,
   SafeAreaView,
-  Image,
   Dimensions,
   Platform,
   TextInput,
@@ -17,17 +17,64 @@ import { normalizeY } from 'utils/normalize';
 import { Octicons } from '@expo/vector-icons';
 import AppButton from 'components/AppButton';
 import { useNavigation } from '@react-navigation/native';
-import useAuth from 'auth/useAuth';
+import { supabase } from '../lib/supabase';
+import Toast from 'react-native-toast-message';
+
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
 function RegisterScreen(props) {
   const navigation = useNavigation();
-  const Auth = useAuth();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSecure, setIsSecure] = useState(true);
+  const [loading, setLoading] = useState(false);
+
+  const clearForm = () => {
+    setName('');
+    setEmail('');
+    setPassword('');
+  };
+
+  const handleRegister = async () => {
+    if (!name || !email || !password) {
+      Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please fill in all fields.' });
+      return;
+    }
+    setLoading(true);
+    const { data, error } = await supabase.auth.signUp({
+      email: email,
+      password: password,
+      options: {
+        data: {
+          full_name: name,
+        },
+      },
+    });
+
+    setLoading(false);
+
+    if (error) {
+      Toast.show({ type: 'error', text1: 'Registration Error', text2: error.message });
+    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
+      Toast.show({ type: 'error', text1: 'Registration Failed', text2: 'This email is already in use.' });
+    } else {
+      Toast.show({
+        type: 'success',
+        text1: 'Registration Successful!',
+        text2: 'Please check your email to verify your account.',
+      });
+      clearForm();
+      navigation.navigate('Signin');
+    }
+  };
+
+  const navigateToSignIn = () => {
+    clearForm();
+    navigation.navigate('Signin');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.background}>
@@ -53,6 +100,7 @@ function RegisterScreen(props) {
             onChangeText={setName}
             placeholder="Enter name"
             style={styles.input}
+            autoCapitalize="words"
           />
         </View>
         <View style={styles.inputView}>
@@ -61,6 +109,8 @@ function RegisterScreen(props) {
             onChangeText={setEmail}
             placeholder="Enter email"
             style={styles.input}
+            autoCapitalize="none"
+            keyboardType="email-address"
           />
         </View>
         <View style={styles.inputView}>
@@ -71,53 +121,31 @@ function RegisterScreen(props) {
             style={styles.input}
             secureTextEntry={isSecure}
           />
-          {isSecure ? (
-            <TouchableOpacity onPress={() => setIsSecure(false)}>
-              <Octicons name="eye-closed" size={20} color="grey" />
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity onPress={() => setIsSecure(true)}>
-              <Octicons name="eye" size={20} color="grey" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity onPress={() => setIsSecure(!isSecure)}>
+            <Octicons name={isSecure ? "eye-closed" : "eye"} size={20} color="grey" />
+          </TouchableOpacity>
         </View>
         <AppButton
-          onPress={() => Auth.setUser('123')}
-          label={'Register'}
+          onPress={handleRegister}
+          label={loading ? 'Registering...' : 'Register'}
+          disabled={loading}
           style={{
             backgroundColor: colors.primary,
             borderRadius: radius._12,
             marginTop: spacingY._40,
           }}
         />
-        <View style={styles.orContinueRow}>
-          <View style={styles.line} />
-          <Typo>or continue with</Typo>
-          <View style={styles.line} />
-        </View>
-        <View style={[styles.orContinueRow, { width: '85%', gap: spacingX._15 }]}>
-          <Icon icon={require('../assets/google.png')} />
-          <Icon icon={require('../assets/apple.png')} />
-          <Icon icon={require('../assets/facebook.png')} />
-        </View>
+
         <TouchableOpacity
-          style={[styles.orContinueRow, { gap: spacingX._5, marginTop: '15%' }]}
-          onPress={() => navigation.navigate('Signin')}>
-          <Typo>Already a memeber?</Typo>
+          style={styles.bottomText}
+          onPress={navigateToSignIn}>
+          <Typo>Already a member?</Typo>
           <Typo style={{ color: colors.blue }}>Signin</Typo>
         </TouchableOpacity>
       </BlurView>
     </SafeAreaView>
   );
 }
-
-const Icon = ({ icon }) => {
-  return (
-    <TouchableOpacity style={styles.iconBg}>
-      <Image source={icon} style={styles.icon} />
-    </TouchableOpacity>
-  );
-};
 
 const styles = StyleSheet.create({
   container: {
@@ -126,7 +154,7 @@ const styles = StyleSheet.create({
   blurContainer: {
     ...StyleSheet.absoluteFill,
     paddingTop: paddingTop,
-    padding: spacingY._20,
+    padding: spacingX._20,
     paddingBottom: '10%',
     textAlign: 'center',
     overflow: 'hidden',
@@ -191,30 +219,13 @@ const styles = StyleSheet.create({
     top: 0,
     left: 0,
   },
-  orContinueRow: {
+  bottomText: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    gap: spacingY._10,
-    marginTop: '10%',
-  },
-  iconBg: {
-    flex: 1,
-    borderWidth: normalizeY(2),
-    borderColor: colors.white,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacingY._10,
-    borderRadius: radius._10,
-  },
-  icon: {
-    height: normalizeY(25),
-    width: normalizeY(25),
-  },
-  line: {
-    height: 1,
-    width: '20%',
-    backgroundColor: colors.black,
+    gap: spacingX._5,
+    marginTop: 'auto',
+    paddingBottom: spacingY._20,
   },
 });
 

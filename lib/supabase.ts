@@ -1,9 +1,13 @@
 // lib/supabase.js
 import { createClient } from '@supabase/supabase-js';
-import Constants from 'expo-constants';
 
-// Get the Supabase credentials from the extra config in app.json
-const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl ?? '';
-const supabaseAnonKey = Constants.expoConfig?.extra?.supabaseAnonKey ?? '';
+// Get the environment variables
+const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+
+// Check if the variables are loaded correctly
+if (!supabaseUrl || !supabaseAnonKey) {
+    throw new Error("Supabase URL or Anon Key is missing. Check your .env file and app.config.js");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);

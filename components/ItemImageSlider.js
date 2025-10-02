@@ -1,89 +1,33 @@
-import React, { useState, useRef } from 'react';
-import { View, Dimensions, StyleSheet, Image, FlatList } from 'react-native';
-import colors from '../config/colors';
+// components/ItemImageSlider.js
+import React from 'react';
+import { View, Dimensions, StyleSheet, Image } from 'react-native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 function ItemImageSlider({ images }) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const flatListRef = useRef(null);
-
-  const viewabilityConfig = {
-    viewAreaCoveragePercentThreshold: 50,
-  };
-
-  const onViewableItemsChanged = ({ viewableItems }) => {
-    if (viewableItems.length > 0) {
-      setCurrentIndex(viewableItems[0].index);
-    }
-  };
+  // Since there's only one image, we take the first one.
+  const imageUrl = Array.isArray(images) ? images[0] : images;
 
   return (
     <View style={styles.container}>
-      <FlatList
-        ref={flatListRef}
-        data={images}
-        horizontal
-        pagingEnabled
-        keyExtractor={(item, index) => index.toString()}
-        renderItem={({ item }) => {
-          return (
-            <View style={styles.imageBG}>
-              <Image source={item} style={styles.image} />
-            </View>
-          );
-        }}
-        onViewableItemsChanged={onViewableItemsChanged}
-        viewabilityConfig={viewabilityConfig}
-        showsHorizontalScrollIndicator={false}
+      <Image
+        source={{ uri: imageUrl }}
+        style={styles.image}
       />
-      <View style={styles.indicatorContainer}>
-        {images.map((_, index) => (
-          <View
-            key={index}
-            style={[
-              styles.indicator,
-              {
-                backgroundColor: index === currentIndex ? colors.primary : '#CCCCCC',
-              },
-            ]}
-          />
-        ))}
-      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    height: '45%',
-  },
-  imageBG: {
+    height: screenWidth, // Make the container a square
     width: screenWidth,
-    height: '100%',
-    backgroundColor: colors.lighterGray,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingTop: '5%',
+    backgroundColor: '#f5f5f5', // A light grey background for the image container
   },
   image: {
-    width: '70%',
-    height: '70%',
-    resizeMode: 'contain',
-  },
-  indicatorContainer: {
-    position: 'absolute',
-    bottom: 30,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-  },
-  indicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginHorizontal: 4,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover', // This crops the image to fill the square, focusing on the middle
   },
 });
 

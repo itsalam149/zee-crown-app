@@ -1,26 +1,66 @@
+// screens/ProfileScreen.js
 import { Ionicons, MaterialCommunityIcons, Octicons } from '@expo/vector-icons';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import useAuth from 'auth/useAuth';
 import ScreenComponent from 'components/ScreenComponent';
 import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
-import { BlurView } from 'expo-blur';
-import React, { useCallback, useState } from 'react';
-import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
-import Animated, { FadeInDown, FadeInRight } from 'react-native-reanimated';
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { normalizeY } from 'utils/normalize';
+import { supabase } from '../lib/supabase';
 
 function ProfileScreen(props) {
   const [key, setKey] = useState(0);
-  const Auth = useAuth();
+  const [profile, setProfile] = useState(null);
+  const { user } = useAuth();
+  const navigation = useNavigation();
 
-  // comment this if you don't want to animate everytime you open this screen
+  useEffect(() => {
+    if (user) {
+      fetchProfile();
+    }
+  }, [user]);
+
+  // Refetches profile data every time the screen is focused
   useFocusEffect(
     useCallback(() => {
+      if (user) {
+        fetchProfile();
+      }
       setKey((prevKey) => prevKey + 1);
-    }, [])
+    }, [user])
   );
+
+  const fetchProfile = async () => {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single();
+
+    if (error) {
+      console.error('Error fetching profile:', error);
+    } else {
+      setProfile(data);
+    }
+  };
+
+  const getInitials = (name) => {
+    if (!name) return '';
+    const names = name.split(' ');
+    const initials = names.map(n => n[0]).join('');
+    return initials.toUpperCase();
+  };
+
+  const handleSignOut = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      Alert.alert('Sign Out Error', error.message);
+    }
+  };
 
   const Row = ({ icon, title, iconColor, index, onPress }) => {
     return (
@@ -44,28 +84,25 @@ function ProfileScreen(props) {
       </TouchableOpacity>
     );
   };
+
   return (
     <ScreenComponent style={styles.container}>
-      <BlurView intensity={100} tint="extraLight" style={styles.blurContainer} />
-      <MaterialCommunityIcons
-        name="camera-plus"
-        size={24}
-        color={colors.black}
-        style={{ alignSelf: 'flex-end' }}
-      />
+      {/* Camera Icon Removed */}
+      <View style={{ height: 24 }} />
+
       <View style={styles.topRow}>
-        <Image
-          source={{
-            uri: 'https://img.freepik.com/free-photo/handsome-smiling-man-looking-with-disbelief_176420-19591.jpg?t=st=1723641040~exp=1723644640~hmac=aef27975e23ff9df20ea1f41d340106576264a0d6c9400a220ad615579e1340b&w=740',
-          }}
-          style={styles.img}
-        />
+        <View style={styles.avatarContainer}>
+          <Typo size={40} style={styles.avatarText}>
+            {getInitials(profile?.full_name)}
+          </Typo>
+        </View>
+
         <View style={{ gap: spacingY._7, marginTop: spacingY._5, alignItems: 'center' }}>
           <Typo size={22} style={styles.name}>
-            Jack Frost
+            {profile?.full_name || 'Zee Crown User'}
           </Typo>
           <Typo size={16} style={{ color: colors.gray, fontWeight: '500' }}>
-            jackfrost@gmail.com
+            {user?.email}
           </Typo>
         </View>
       </View>
@@ -76,24 +113,26 @@ function ProfileScreen(props) {
             iconColor={'#fbdbe6'}
             icon={<Ionicons name="person" size={24} color={'#eb4b8b'} />}
             index={0}
+            onPress={() => navigation.navigate('EditProfile', { currentName: profile?.full_name })}
           />
-          {/* <View style={styles.line} /> */}
           <Row
-            title={'My stats'}
+            title={'My Orders'}
             iconColor={'#dedffd'}
-            icon={<Ionicons name="stats-chart" size={24} color={'#5d5be5'} />}
+            icon={<Ionicons name="receipt-outline" size={24} color={'#5d5be5'} />}
             index={1}
+            onPress={() => navigation.navigate('MyOrders')}
           />
           <Row
-            title={'Settings'}
+            title={'My Addresses'}
             iconColor={'#ffe3ce'}
-            icon={<Ionicons name="settings" size={24} color={'#f97113'} />}
+            icon={<Ionicons name="location-outline" size={24} color={'#f97113'} />}
             index={2}
+            onPress={() => navigation.navigate('MyAddresses')}
           />
           <Row
             title={'Invite a friend'}
-            iconColor={'#F5E8E4'} // '#E9F8F9' '#176B87'
-            icon={<Ionicons name="person-add" size={24} color={'#860A35'} />}
+            iconColor={'#F5E8E4'}
+            icon={<Ionicons name="person-add-outline" size={24} color={'#860A35'} />}
             index={3}
           />
         </View>
@@ -101,7 +140,7 @@ function ProfileScreen(props) {
           <Row
             title={'Help'}
             iconColor={'#d1d1d1'}
-            icon={<Ionicons name="chatbubble-ellipses" size={24} color={colors.black} />}
+            icon={<Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.black} />}
             index={4}
           />
           <Row
@@ -109,7 +148,7 @@ function ProfileScreen(props) {
             iconColor={'#d1d1d1'}
             icon={<MaterialCommunityIcons name="logout" size={24} color={colors.black} />}
             index={5}
-            onPress={() => Auth.setUser(null)}
+            onPress={handleSignOut}
           />
         </View>
       </View>
@@ -120,17 +159,6 @@ function ProfileScreen(props) {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacingX._20,
-    // backgroundColor: colors.lightPrimary,
-  },
-
-  blurContainer: {
-    ...StyleSheet.absoluteFill,
-    paddingTop: 0,
-    padding: spacingY._20,
-    paddingBottom: '10%',
-    textAlign: 'center',
-    overflow: 'hidden',
-    borderRadius: radius._20,
   },
   topRow: {
     marginBottom: normalizeY(25),
@@ -138,12 +166,24 @@ const styles = StyleSheet.create({
     gap: spacingX._10,
     marginTop: '2%',
   },
-  img: {
+  avatarContainer: {
     height: normalizeY(110),
     width: normalizeY(110),
     borderRadius: normalizeY(60),
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
     borderWidth: normalizeY(3),
-    borderColor: colors.primary,
+    borderColor: colors.white,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  avatarText: {
+    color: colors.white,
+    fontWeight: 'bold',
   },
   name: {
     fontWeight: '600',
@@ -155,13 +195,6 @@ const styles = StyleSheet.create({
     paddingVertical: spacingY._10,
     paddingRight: spacingX._5,
   },
-  line: {
-    height: 0.8,
-    width: '95%',
-    backgroundColor: 'rgba(0,0,0,0.1)',
-    alignSelf: 'center',
-    // marginVertical: spacingY._10,
-  },
   bottomContainer: {
     backgroundColor: colors.white,
     borderRadius: spacingY._20,
@@ -170,7 +203,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 10,
     padding: spacingY._15,
-    // marginBottom: '30%',
   },
 });
 
