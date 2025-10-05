@@ -7,7 +7,7 @@ import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { normalizeY } from 'utils/normalize';
 import { supabase } from '../lib/supabase';
@@ -24,7 +24,6 @@ function ProfileScreen(props) {
     }
   }, [user]);
 
-  // Refetches profile data every time the screen is focused
   useFocusEffect(
     useCallback(() => {
       if (user) {
@@ -87,71 +86,71 @@ function ProfileScreen(props) {
 
   return (
     <ScreenComponent style={styles.container}>
-      {/* Camera Icon Removed */}
-      <View style={{ height: 24 }} />
+      <ScrollView contentContainerStyle={{ paddingBottom: spacingY._30 }}>
+        <View style={{ height: 24 }} />
 
-      <View style={styles.topRow}>
-        <View style={styles.avatarContainer}>
-          <Typo size={40} style={styles.avatarText}>
-            {getInitials(profile?.full_name)}
-          </Typo>
+        <View style={styles.topRow}>
+          <View style={styles.avatarContainer}>
+            <Typo size={40} style={styles.avatarText}>
+              {getInitials(profile?.full_name)}
+            </Typo>
+          </View>
+
+          <View style={{ gap: spacingY._7, marginTop: spacingY._5, alignItems: 'center' }}>
+            <Typo size={22} style={styles.name}>
+              {profile?.full_name || 'Zee Crown User'}
+            </Typo>
+            <Typo size={16} style={{ color: colors.gray, fontWeight: '500' }}>
+              {user?.email}
+            </Typo>
+          </View>
         </View>
 
-        <View style={{ gap: spacingY._7, marginTop: spacingY._5, alignItems: 'center' }}>
-          <Typo size={22} style={styles.name}>
-            {profile?.full_name || 'Zee Crown User'}
-          </Typo>
-          <Typo size={16} style={{ color: colors.gray, fontWeight: '500' }}>
-            {user?.email}
-          </Typo>
+        <View style={{ flex: 1, gap: 15 }}>
+          <View style={styles.bottomContainer}>
+            <Row
+              title={'Edit profile'}
+              iconColor={'#fbdbe6'}
+              icon={<Ionicons name="person" size={24} color={'#eb4b8b'} />}
+              index={0}
+              onPress={() => navigation.navigate('EditProfile', { currentName: profile?.full_name })}
+            />
+            <Row
+              title={'My Orders'}
+              iconColor={'#dedffd'}
+              icon={<Ionicons name="receipt-outline" size={24} color={'#5d5be5'} />}
+              index={1}
+              onPress={() => navigation.navigate('MyOrders')}
+            />
+            <Row
+              title={'My Addresses'}
+              iconColor={'#ffe3ce'}
+              icon={<Ionicons name="location-outline" size={24} color={'#f97113'} />}
+              index={2}
+              onPress={() => navigation.navigate('MyAddresses')}
+            />
+            {/* Invite a friend removed */}
+          </View>
+
+          <View style={[styles.bottomContainer, { marginBottom: '30%' }]}>
+            <Row
+              title={'Help'}
+              iconColor={'#d1d1d1'}
+              icon={<Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.black} />}
+              index={3}
+              onPress={() => navigation.navigate('HelpScreen')}
+            />
+
+            <Row
+              title={'Log out'}
+              iconColor={'#d1d1d1'}
+              icon={<MaterialCommunityIcons name="logout" size={24} color={colors.black} />}
+              index={4}
+              onPress={handleSignOut}
+            />
+          </View>
         </View>
-      </View>
-      <View style={{ flex: 1, gap: 15 }}>
-        <View style={styles.bottomContainer}>
-          <Row
-            title={'Edit profile'}
-            iconColor={'#fbdbe6'}
-            icon={<Ionicons name="person" size={24} color={'#eb4b8b'} />}
-            index={0}
-            onPress={() => navigation.navigate('EditProfile', { currentName: profile?.full_name })}
-          />
-          <Row
-            title={'My Orders'}
-            iconColor={'#dedffd'}
-            icon={<Ionicons name="receipt-outline" size={24} color={'#5d5be5'} />}
-            index={1}
-            onPress={() => navigation.navigate('MyOrders')}
-          />
-          <Row
-            title={'My Addresses'}
-            iconColor={'#ffe3ce'}
-            icon={<Ionicons name="location-outline" size={24} color={'#f97113'} />}
-            index={2}
-            onPress={() => navigation.navigate('MyAddresses')}
-          />
-          <Row
-            title={'Invite a friend'}
-            iconColor={'#F5E8E4'}
-            icon={<Ionicons name="person-add-outline" size={24} color={'#860A35'} />}
-            index={3}
-          />
-        </View>
-        <View style={[styles.bottomContainer, { marginBottom: '30%' }]}>
-          <Row
-            title={'Help'}
-            iconColor={'#d1d1d1'}
-            icon={<Ionicons name="chatbubble-ellipses-outline" size={24} color={colors.black} />}
-            index={4}
-          />
-          <Row
-            title={'Log out'}
-            iconColor={'#d1d1d1'}
-            icon={<MaterialCommunityIcons name="logout" size={24} color={colors.black} />}
-            index={5}
-            onPress={handleSignOut}
-          />
-        </View>
-      </View>
+      </ScrollView>
     </ScreenComponent>
   );
 }

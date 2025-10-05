@@ -19,6 +19,7 @@ function CartScreen({ navigation }) {
   const { user } = useAuth();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [shippingFee, setShippingFee] = useState(0);
 
   const fetchCartItems = useCallback(() => {
     async function getItems() {
@@ -28,16 +29,17 @@ function CartScreen({ navigation }) {
         return;
       }
       setLoading(true);
+
       const { data, error } = await supabase
         .from('cart_items')
         .select('id, quantity, products(*)')
         .eq('user_id', user.id)
-        .order('id', { ascending: true }); // ✅ stable order
+        .order('id', { ascending: true });
 
       if (error) {
         Toast.show({ type: 'error', text1: 'Error', text2: 'Could not fetch cart items.' });
       } else {
-        setCartItems(data);
+        setCartItems(data || []);
       }
       setLoading(false);
     }
@@ -47,11 +49,8 @@ function CartScreen({ navigation }) {
   useFocusEffect(fetchCartItems);
 
   const updateQuantity = async (cartItemId, newQuantity) => {
-    if (newQuantity < 1) {
-      return removeItem(cartItemId);
-    }
+    if (newQuantity < 1) return removeItem(cartItemId);
 
-    // ✅ Optimistic update
     setCartItems((prev) =>
       prev.map((item) =>
         item.id === cartItemId ? { ...item, quantity: newQuantity } : item
@@ -65,25 +64,57 @@ function CartScreen({ navigation }) {
 
     if (error) {
       Toast.show({ type: 'error', text1: 'Error', text2: 'Could not update quantity.' });
-      fetchCartItems(); // rollback if error
+      fetchCartItems();
     }
   };
 
   const removeItem = async (cartItemId) => {
-    // ✅ Optimistic remove
     setCartItems((prev) => prev.filter((item) => item.id !== cartItemId));
 
     const { error } = await supabase.from('cart_items').delete().eq('id', cartItemId);
     if (error) {
       Toast.show({ type: 'error', text1: 'Error', text2: 'Could not remove item.' });
-      fetchCartItems(); // rollback if error
+      fetchCartItems();
     } else {
       Toast.show({ type: 'success', text1: 'Item removed from cart.' });
     }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + (item.products.price * item.quantity), 0);
-  const shippingFee = subtotal > 0 ? 50 : 0;
+  // ✅ Calculate subtotal safely
+  const subtotal = cartItems.reduce(
+    (sum, item) => sum + ((item.products?.price || 0) * item.quantity),
+    0
+  );
+
+  // ✅ Fetch shipping rule from table
+  React.useEffect(() => {
+    async function fetchShippingRule() {
+      if (subtotal <= 0) {
+        setShippingFee(0);
+        return;
+      }
+      const { data, error } = await supabase
+        .from('shipping_rules')
+        .select('*')
+        .eq('is_active', true)
+        .lte('min_order_value', subtotal)
+        .or(`max_order_value.is.null,max_order_value.gte.${subtotal}`)
+        .order('min_order_value', { ascending: false })
+        .limit(1);
+
+      if (error) {
+        console.error('Shipping rule fetch error:', error);
+        setShippingFee(subtotal < 500 ? 50 : 0); // fallback
+      } else if (data && data.length > 0) {
+        setShippingFee(data[0].charge);
+      } else {
+        setShippingFee(subtotal < 500 ? 50 : 0); // fallback if no rule
+      }
+    }
+
+    fetchShippingRule();
+  }, [subtotal]);
+
   const total = subtotal + shippingFee;
 
   const renderEmptyCart = () => (
@@ -129,9 +160,7 @@ function CartScreen({ navigation }) {
           />
           <View style={styles.checkoutContainer}>
             <Row title={'Subtotal'} price={`₹${subtotal.toFixed(2)}`} />
-            <View style={styles.separator} />
             <Row title={'Shipping fee'} price={`₹${shippingFee.toFixed(2)}`} />
-            <View style={styles.separator} />
             <Row title={'Total'} price={`₹${total.toFixed(2)}`} />
             <AppButton
               label={'Proceed to Checkout'}
@@ -192,11 +221,6 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacingY._10,
-  },
-  separator: {
-    height: 1,
-    backgroundColor: colors.lighterGray,
-    marginVertical: spacingY._5,
   },
 });
 

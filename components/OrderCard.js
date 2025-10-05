@@ -1,6 +1,7 @@
 // components/OrderCard.js
 import React from 'react';
-import { View, StyleSheet, Image } from 'react-native';
+import { View, StyleSheet, Image, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Typo from './Typo';
 import colors from '../config/colors';
 import { radius, spacingX, spacingY } from '../config/spacing';
@@ -21,9 +22,10 @@ const getStatusStyle = (status) => {
 
 function OrderCard({ item: order }) {
     const statusStyle = getStatusStyle(order.status);
+    const navigation = useNavigation();
 
     return (
-        <View style={styles.card}>
+        <TouchableOpacity style={styles.card} onPress={() => navigation.navigate('OrderDetail', { order })}>
             <View style={styles.header}>
                 <Typo style={styles.orderId}>Order #{order.id.toString().slice(-6)}</Typo>
                 <View style={[styles.statusBadge, { backgroundColor: statusStyle.backgroundColor }]}>
@@ -39,7 +41,6 @@ function OrderCard({ item: order }) {
                     return (
                         <View key={orderItem.id} style={styles.itemRow}>
                             <Image
-                                // FINAL FIX: Using a known existing asset as a fallback to prevent crashes
                                 source={finalImageUrl ? { uri: finalImageUrl } : require('../assets/startImage.png')}
                                 style={styles.productImage}
                             />
@@ -57,7 +58,7 @@ function OrderCard({ item: order }) {
                 <Typo style={styles.dateText}>{new Date(order.created_at).toLocaleDateString()}</Typo>
                 <Typo style={styles.totalText}>Total: ₹{order.total_price.toFixed(2)}</Typo>
             </View>
-        </View>
+        </TouchableOpacity>
     );
 }
 
