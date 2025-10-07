@@ -81,9 +81,9 @@ function HomeScreen({ navigation }) {
         style={StyleSheet.absoluteFill}
       />
       <View style={styles.header}>
-        <View style={styles.iconBg}>
+        {/* <View style={styles.iconBg}>
           <Entypo name="grid" size={24} color="black" />
-        </View>
+        </View> */}
         <TouchableOpacity
           style={styles.iconBg}
           onPress={() => navigation.navigate('Notifications')}>
