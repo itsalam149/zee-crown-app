@@ -70,6 +70,11 @@ function ItemDetailsScreen({ route, navigation }) {
 
   const modalScale = useSharedValue(0);
 
+  // Calculate discount percentage
+  const discount = item.mrp && item.mrp > item.price
+    ? Math.round(((item.mrp - item.price) / item.mrp) * 100)
+    : 0;
+
   const animatedModalStyle = useAnimatedStyle(() => ({
     transform: [{ scale: modalScale.value }],
   }));
@@ -115,7 +120,19 @@ function ItemDetailsScreen({ route, navigation }) {
             <Typo size={24} style={styles.titleText}>{item.name}</Typo>
 
             <View style={styles.subHeaderContainer}>
-              <Typo size={28} style={styles.priceText}>₹{item.price}</Typo>
+              <Typo size={28} style={styles.priceText}>
+                ₹{item.price}
+              </Typo>
+              {item.mrp && item.mrp > item.price && (
+                <Typo size={20} style={styles.mrpText}>
+                  ₹{item.mrp}
+                </Typo>
+              )}
+              {discount > 0 && (
+                <View style={styles.discountBadge}>
+                  <Typo style={styles.discountText}>{discount}% OFF</Typo>
+                </View>
+              )}
             </View>
 
             <View style={styles.divider} />
@@ -198,14 +215,31 @@ const styles = StyleSheet.create({
   },
   subHeaderContainer: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
     alignItems: 'center',
     marginTop: spacingY._10,
     marginBottom: spacingY._20,
+    gap: spacingX._15,
   },
   priceText: {
     fontWeight: '800',
     color: colors.primary,
+  },
+  mrpText: {
+    fontSize: 20,
+    color: colors.gray,
+    textDecorationLine: 'line-through',
+  },
+  discountBadge: {
+    backgroundColor: '#E8F5E9',
+    paddingHorizontal: spacingX._10,
+    paddingVertical: spacingY._5,
+    borderRadius: radius._6,
+    marginLeft: 'auto',
+  },
+  discountText: {
+    color: '#388E3C',
+    fontWeight: 'bold',
+    fontSize: 14,
   },
   divider: {
     height: 1,

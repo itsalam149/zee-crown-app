@@ -9,26 +9,23 @@ import Typo from './Typo';
 
 const { width, height } = Dimensions.get('screen');
 
-function ProductCard({ item, themeColor }) { // Ensure item.category is available
+function ProductCard({ item, themeColor }) {
   const navigation = useNavigation();
 
-  // --- STYLE LOGIC ---
   const isAllCategory = !themeColor || themeColor === colors.primary;
-  const isCosmeticsCategory = item.category === 'Cosmetics'; // Check for Cosmetics category
+  const isCosmeticsCategory = item.category === 'Cosmetics';
 
   let cardBackgroundColor;
   if (isCosmeticsCategory) {
-    cardBackgroundColor = '#87CEEB'; // Sky blue for Cosmetics
+    cardBackgroundColor = '#87CEEB';
   } else if (isAllCategory) {
     cardBackgroundColor = colors.white;
   } else {
     cardBackgroundColor = Color(themeColor).mix(Color('white'), 0.85).hex();
   }
 
-  // Set the text color to always be black.
   const textColor = colors.black;
 
-  // Common shadow styles that will be applied to all cards.
   const shadowStyle = {
     shadowColor: '#000',
     shadowOffset: {
@@ -39,7 +36,6 @@ function ProductCard({ item, themeColor }) { // Ensure item.category is availabl
     shadowRadius: 3.84,
     elevation: 5,
   };
-  // --- END STYLE LOGIC ---
 
   return (
     <TouchableOpacity
@@ -53,9 +49,16 @@ function ProductCard({ item, themeColor }) { // Ensure item.category is availabl
         <Typo size={14} style={[styles.name, { color: textColor }]} numberOfLines={2}>
           {item.name}
         </Typo>
-        <Typo size={14} style={[styles.price, { color: textColor }]}>
-          ₹{item.price}
-        </Typo>
+        <View style={styles.priceContainer}>
+          <Typo size={14} style={[styles.price, { color: textColor }]}>
+            ₹{item.price}
+          </Typo>
+          {item.mrp && item.mrp > item.price && (
+            <Typo size={12} style={styles.mrp}>
+              ₹{item.mrp}
+            </Typo>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -87,10 +90,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     minHeight: 36,
   },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: spacingY._5,
+    gap: spacingX._10,
+  },
   price: {
     fontWeight: 'bold',
-    marginTop: spacingY._5,
+  },
+  mrp: {
+    color: colors.gray,
+    textDecorationLine: 'line-through',
   },
 });
 
-export default ProductCard; 
+export default ProductCard;

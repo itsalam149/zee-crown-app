@@ -4,7 +4,7 @@ import {
   View,
   SafeAreaView,
   Dimensions,
-  Platform, // <-- ADDED THIS IMPORT
+  Platform,
   TextInput,
   TouchableOpacity,
 } from 'react-native';
@@ -27,6 +27,7 @@ function RegisterScreen(props) {
   const navigation = useNavigation();
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [isSecure, setIsSecure] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -34,11 +35,12 @@ function RegisterScreen(props) {
   const clearForm = () => {
     setName('');
     setEmail('');
+    setPhone('');
     setPassword('');
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password) {
+    if (!name || !email || !password || !phone) {
       Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please fill in all fields.' });
       return;
     }
@@ -49,6 +51,7 @@ function RegisterScreen(props) {
       options: {
         data: {
           full_name: name,
+          phone_number: phone,
         },
       },
     });
@@ -111,6 +114,15 @@ function RegisterScreen(props) {
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
+          />
+        </View>
+        <View style={styles.inputView}>
+          <TextInput
+            value={phone}
+            onChangeText={setPhone}
+            placeholder="Enter mobile number"
+            style={styles.input}
+            keyboardType="phone-pad"
           />
         </View>
         <View style={styles.inputView}>
