@@ -5,6 +5,7 @@ export default {
     expo: {
         name: 'Zee Crown',
         slug: 'ecommerce-app-ui',
+        scheme: 'zeecrown', // Added this line
         version: '1.0.0',
         web: {
             favicon: './assets/favicon.png',

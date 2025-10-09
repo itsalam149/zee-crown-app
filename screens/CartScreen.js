@@ -15,11 +15,42 @@ import { spacingX, spacingY, radius } from 'config/spacing';
 import Toast from 'react-native-toast-message';
 import { Feather } from '@expo/vector-icons';
 
+// New component for the free shipping bar
+const FreeShippingBar = ({ subtotal, threshold }) => {
+  if (!threshold || subtotal <= 0) {
+    return null;
+  }
+
+  const remainingAmount = threshold - subtotal;
+
+  if (remainingAmount > 0) {
+    return (
+      <View style={styles.shippingBar}>
+        <Typo style={styles.shippingBarText}>
+          Add <Typo style={{ fontWeight: 'bold' }}>₹{remainingAmount.toFixed(2)}</Typo> more for FREE delivery!
+        </Typo>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${(subtotal / threshold) * 100}%` }]} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.shippingBar, styles.shippingBarSuccess]}>
+      <Typo style={[styles.shippingBarText, styles.shippingBarSuccessText]}>
+        🎉 Yay! You've got FREE delivery!
+      </Typo>
+    </View>
+  );
+};
+
 function CartScreen({ navigation }) {
   const { user } = useAuth();
   const [cartItems, setCartItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [shippingFee, setShippingFee] = useState(0);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(0); // New state
 
   const fetchCartItems = useCallback(() => {
     async function getItems() {
@@ -80,39 +111,47 @@ function CartScreen({ navigation }) {
     }
   };
 
-  // ✅ Calculate subtotal safely
   const subtotal = cartItems.reduce(
     (sum, item) => sum + ((item.products?.price || 0) * item.quantity),
     0
   );
 
-  // ✅ Fetch shipping rule from table
+  // Updated useEffect to fetch all rules and set threshold
   React.useEffect(() => {
-    async function fetchShippingRule() {
-      if (subtotal <= 0) {
-        setShippingFee(0);
-        return;
-      }
+    async function fetchShippingRules() {
       const { data, error } = await supabase
         .from('shipping_rules')
-        .select('*')
+        .select('min_order_value, charge')
         .eq('is_active', true)
-        .lte('min_order_value', subtotal)
-        .or(`max_order_value.is.null,max_order_value.gte.${subtotal}`)
-        .order('min_order_value', { ascending: false })
-        .limit(1);
+        .order('min_order_value', { ascending: false });
 
       if (error) {
         console.error('Shipping rule fetch error:', error);
-        setShippingFee(subtotal < 500 ? 50 : 0); // fallback
-      } else if (data && data.length > 0) {
-        setShippingFee(data[0].charge);
+        setFreeShippingThreshold(299);
+        if (subtotal > 0) setShippingFee(subtotal < 299 ? 40 : 0);
+        else setShippingFee(0);
+        return;
+      }
+
+      if (data && data.length > 0) {
+        const freeShippingRule = data.find(rule => rule.charge === 0);
+        setFreeShippingThreshold(freeShippingRule?.min_order_value || 0);
+
+        if (subtotal > 0) {
+          const applicableRule = data.find(rule => subtotal >= rule.min_order_value);
+          if (applicableRule) setShippingFee(applicableRule.charge);
+          else setShippingFee(0);
+        } else {
+          setShippingFee(0);
+        }
       } else {
-        setShippingFee(subtotal < 500 ? 50 : 0); // fallback if no rule
+        setFreeShippingThreshold(299);
+        if (subtotal > 0) setShippingFee(subtotal < 299 ? 40 : 0);
+        else setShippingFee(0);
       }
     }
 
-    fetchShippingRule();
+    fetchShippingRules();
   }, [subtotal]);
 
   const total = subtotal + shippingFee;
@@ -145,6 +184,7 @@ function CartScreen({ navigation }) {
         renderEmptyCart()
       ) : (
         <View style={{ flex: 1 }}>
+          <FreeShippingBar subtotal={subtotal} threshold={freeShippingThreshold} />
           <FlatList
             data={cartItems}
             contentContainerStyle={styles.listContainer}
@@ -197,7 +237,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     paddingHorizontal: spacingX._20,
-    paddingTop: spacingY._15,
+    paddingTop: spacingY._5, // Reduced padding
     paddingBottom: 230,
   },
   checkoutContainer: {
@@ -222,6 +262,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: spacingY._10,
   },
+  shippingBar: {
+    backgroundColor: '#E3F2FD', // Light blue
+    padding: spacingX._15,
+    borderRadius: radius._10,
+    marginHorizontal: spacingX._20,
+    marginTop: spacingY._15,
+    marginBottom: spacingY._5,
+    borderWidth: 1,
+    borderColor: '#BBDEFB', // Slightly darker blue
+  },
+  shippingBarText: {
+    textAlign: 'center',
+    color: '#1565C0', // Dark blue text
+    fontWeight: '500',
+  },
+  shippingBarSuccess: {
+    backgroundColor: '#E8F5E9', // Light green
+    borderColor: '#C8E6C9', // Slightly darker green
+  },
+  shippingBarSuccessText: {
+    color: '#2E7D32', // Dark green text
+    fontWeight: '600',
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: 'rgba(21, 101, 192, 0.2)',
+    borderRadius: 3,
+    marginTop: spacingY._10,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#1976D2', // Darker blue
+    borderRadius: 3,
+  }
 });
 
 export default CartScreen;

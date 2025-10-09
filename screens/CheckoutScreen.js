@@ -26,6 +26,37 @@ import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('screen');
 
+// New component for the free shipping bar
+const FreeShippingBar = ({ subtotal, threshold }) => {
+  if (!threshold || subtotal <= 0) {
+    return null;
+  }
+
+  const remainingAmount = threshold - subtotal;
+
+  if (remainingAmount > 0) {
+    return (
+      <View style={styles.shippingBar}>
+        <Typo style={styles.shippingBarText}>
+          Add <Typo style={{ fontWeight: 'bold' }}>₹{remainingAmount.toFixed(2)}</Typo> more for FREE delivery!
+        </Typo>
+        <View style={styles.progressBarBackground}>
+          <View style={[styles.progressBarFill, { width: `${(subtotal / threshold) * 100}%` }]} />
+        </View>
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.shippingBar, styles.shippingBarSuccess]}>
+      <Typo style={[styles.shippingBarText, styles.shippingBarSuccessText]}>
+        🎉 Yay! You've got FREE delivery!
+      </Typo>
+    </View>
+  );
+};
+
+
 function CheckoutScreen() {
   const navigation = useNavigation();
   const { user } = useAuth();
@@ -48,6 +79,7 @@ function CheckoutScreen() {
   const [mobileNumber, setMobileNumber] = useState('');
 
   const [shippingFee, setShippingFee] = useState(0);
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState(0); // New state
 
   useFocusEffect(
     useCallback(() => {
@@ -155,39 +187,46 @@ function CheckoutScreen() {
     0
   );
 
-  // ✅ fetch shipping fee from table based on subtotal
+  // Updated useEffect to fetch all rules and set threshold
   useEffect(() => {
-    async function fetchShipping() {
-      if (subtotal <= 0) {
-        setShippingFee(0);
+    async function fetchShippingRules() {
+      const { data, error } = await supabase
+        .from('shipping_rules')
+        .select('min_order_value, charge')
+        .eq('is_active', true)
+        .order('min_order_value', { ascending: false });
+
+      if (error) {
+        console.error('Shipping rule fetch error:', error);
+        setFreeShippingThreshold(299);
+        if (subtotal > 0) setShippingFee(subtotal < 299 ? 40 : 0);
+        else setShippingFee(0);
         return;
       }
 
-      const { data, error } = await supabase
-        .from('shipping_rules')
-        .select('*')
-        .eq('is_active', true)
-        .lte('min_order_value', subtotal)
-        .or(`max_order_value.is.null,max_order_value.gte.${subtotal}`)
-        .order('min_order_value', { ascending: false })
-        .limit(1);
+      if (data && data.length > 0) {
+        const freeShippingRule = data.find(rule => rule.charge === 0);
+        setFreeShippingThreshold(freeShippingRule?.min_order_value || 0);
 
-      if (error) {
-        console.error('Shipping fetch error:', error);
-        setShippingFee(subtotal < 500 ? 50 : 0); // fallback
-      } else if (data && data.length > 0) {
-        setShippingFee(data[0].charge);
+        if (subtotal > 0) {
+          const applicableRule = data.find(rule => subtotal >= rule.min_order_value);
+          if (applicableRule) setShippingFee(applicableRule.charge);
+          else setShippingFee(0);
+        } else {
+          setShippingFee(0);
+        }
       } else {
-        setShippingFee(subtotal < 500 ? 50 : 0); // fallback
+        setFreeShippingThreshold(299);
+        if (subtotal > 0) setShippingFee(subtotal < 299 ? 40 : 0);
+        else setShippingFee(0);
       }
     }
 
-    fetchShipping();
+    fetchShippingRules();
   }, [subtotal]);
 
   const total = subtotal + shippingFee;
 
-  // ✅ FIXED confirm order
   const handleConfirmOrder = async () => {
     if (!selectedAddress) {
       Toast.show({
@@ -399,6 +438,9 @@ function CheckoutScreen() {
         <Typo size={18} style={styles.sectionTitle}>
           Order Summary
         </Typo>
+
+        <FreeShippingBar subtotal={subtotal} threshold={freeShippingThreshold} />
+
         {cartItems.map(item => (
           <View key={item.id} style={styles.summaryRow}>
             <Typo style={{ flex: 1 }} numberOfLines={1}>
@@ -523,6 +565,39 @@ const styles = StyleSheet.create({
   },
   priceLabel: { color: colors.gray, fontWeight: '500' },
   priceValue: { fontWeight: 'bold', fontSize: 20 },
+  shippingBar: {
+    backgroundColor: '#E3F2FD', // Light blue
+    padding: spacingX._15,
+    borderRadius: radius._10,
+    marginBottom: spacingY._15, // Margin below the bar
+    borderWidth: 1,
+    borderColor: '#BBDEFB', // Slightly darker blue
+  },
+  shippingBarText: {
+    textAlign: 'center',
+    color: '#1565C0', // Dark blue text
+    fontWeight: '500',
+  },
+  shippingBarSuccess: {
+    backgroundColor: '#E8F5E9', // Light green
+    borderColor: '#C8E6C9', // Slightly darker green
+  },
+  shippingBarSuccessText: {
+    color: '#2E7D32', // Dark green text
+    fontWeight: '600',
+  },
+  progressBarBackground: {
+    height: 6,
+    backgroundColor: 'rgba(21, 101, 192, 0.2)',
+    borderRadius: 3,
+    marginTop: spacingY._10,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    backgroundColor: '#1976D2', // Darker blue
+    borderRadius: 3,
+  }
 });
 
 export default CheckoutScreen;
