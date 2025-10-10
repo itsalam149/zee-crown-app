@@ -136,14 +136,14 @@ function AddressesScreen() {
 
                 {showAddAddress && (
                     <View style={styles.form}>
-                        <TextInput placeholder="House No. / Flat No." value={houseNo} onChangeText={setHouseNo} style={styles.input} />
-                        <TextInput placeholder="Street Address / Area" value={street} onChangeText={setStreet} style={styles.input} />
-                        <TextInput placeholder="Landmark (Optional)" value={landmark} onChangeText={setLandmark} style={styles.input} />
-                        <TextInput placeholder="City" value={city} onChangeText={setCity} style={styles.input} />
-                        <TextInput placeholder="State / Province" value={state} onChangeText={setState} style={styles.input} />
-                        <TextInput placeholder="Postal Code" value={postalCode} onChangeText={setPostalCode} style={styles.input} keyboardType="numeric" />
-                        <TextInput placeholder="Country" value={country} onChangeText={setCountry} style={styles.input} />
-                        <TextInput placeholder="Mobile Number" value={mobileNumber} onChangeText={setMobileNumber} style={styles.input} keyboardType="phone-pad" />
+                        <TextInput placeholder="House No. / Flat No." value={houseNo} placeholderTextColor={colors.gray} onChangeText={setHouseNo} style={styles.input} />
+                        <TextInput placeholder="Street Address / Area" value={street} placeholderTextColor={colors.gray} onChangeText={setStreet} style={styles.input} />
+                        <TextInput placeholder="Landmark (Optional)" value={landmark} onChangeText={setLandmark} placeholderTextColor={colors.gray} style={styles.input} />
+                        <TextInput placeholder="City" value={city} onChangeText={setCity} placeholderTextColor={colors.gray} style={styles.input} />
+                        <TextInput placeholder="State / Province" value={state} onChangeText={setState} placeholderTextColor={colors.gray} style={styles.input} />
+                        <TextInput placeholder="Postal Code" value={postalCode} onChangeText={setPostalCode} placeholderTextColor={colors.gray} style={styles.input} keyboardType="numeric" />
+                        <TextInput placeholder="Country" value={country} onChangeText={setCountry} placeholderTextColor={colors.gray} style={styles.input} />
+                        <TextInput placeholder="Mobile Number" value={mobileNumber} onChangeText={setMobileNumber} placeholderTextColor={colors.gray} style={styles.input} keyboardType="phone-pad" />
                         <AppButton
                             label={isSubmitting ? "Saving..." : "Save Address"}
                             onPress={handleAddAddress}

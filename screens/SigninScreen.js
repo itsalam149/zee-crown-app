@@ -70,7 +70,7 @@ function SigninScreen(props) {
         <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
         <View style={styles.c2} />
       </View>
-      <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+      <BlurView intensity={80} tint="light" style={styles.blurContainer}>
         <Typo size={26} style={styles.text}>
           Hello Again!
         </Typo>
@@ -87,6 +87,7 @@ function SigninScreen(props) {
             value={email}
             onChangeText={setEmail}
             placeholder="Enter email"
+            placeholderTextColor="grey"
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
@@ -97,7 +98,8 @@ function SigninScreen(props) {
             value={password}
             onChangeText={setPassword}
             placeholder="Password"
-            style={styles.input}
+            placeholderTextColor="grey"
+            style={styles.passwordInput}
             secureTextEntry={isSecure}
           />
           <TouchableOpacity onPress={() => setIsSecure(!isSecure)}>
@@ -144,7 +146,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   inputView: {
-    backgroundColor: colors.white,
+    backgroundColor: '#ffffffaa', // semi-transparent white for better contrast
     borderRadius: radius._15,
     borderCurve: 'continuous',
     marginTop: spacingY._15,
@@ -160,6 +162,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._20,
     fontSize: normalizeY(16),
     flex: 1,
+    color: colors.black,
+  },
+  passwordInput: {
+    paddingVertical: spacingY._20,
+    paddingHorizontal: spacingX._20,
+    fontSize: normalizeY(16),
+    flex: 1,
+    color: colors.black,
   },
   text: {
     fontWeight: '600',

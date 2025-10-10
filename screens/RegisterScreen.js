@@ -29,7 +29,9 @@ function RegisterScreen(props) {
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isSecure, setIsSecure] = useState(true);
+  const [isConfirmSecure, setIsConfirmSecure] = useState(true);
   const [loading, setLoading] = useState(false);
 
   const clearForm = () => {
@@ -37,13 +39,20 @@ function RegisterScreen(props) {
     setEmail('');
     setPhone('');
     setPassword('');
+    setConfirmPassword('');
   };
 
   const handleRegister = async () => {
-    if (!name || !email || !password || !phone) {
+    if (!name || !email || !password || !confirmPassword || !phone) {
       Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please fill in all fields.' });
       return;
     }
+
+    if (password !== confirmPassword) {
+      Toast.show({ type: 'error', text1: 'Password Error', text2: 'Passwords do not match.' });
+      return;
+    }
+
     setLoading(true);
     const { data, error } = await supabase.auth.signUp({
       email: email,
@@ -60,8 +69,6 @@ function RegisterScreen(props) {
 
     if (error) {
       Toast.show({ type: 'error', text1: 'Registration Error', text2: error.message });
-    } else if (data.user && data.user.identities && data.user.identities.length === 0) {
-      Toast.show({ type: 'error', text1: 'Registration Failed', text2: 'This email is already in use.' });
     } else {
       Toast.show({
         type: 'success',
@@ -85,7 +92,7 @@ function RegisterScreen(props) {
         <View style={[styles.pinkCircle, { opacity: 0.7 }]} />
         <View style={[styles.c2, { opacity: 0.7 }]} />
       </View>
-      <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+      <BlurView intensity={80} tint="light" style={styles.blurContainer}>
         <Typo size={26} style={styles.text}>
           Hello There!
         </Typo>
@@ -97,46 +104,74 @@ function RegisterScreen(props) {
             of Shopping Delights!
           </Typo>
         </View>
+
+        {/* Name */}
         <View style={styles.inputView}>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Enter name"
+            placeholderTextColor="grey"
             style={styles.input}
             autoCapitalize="words"
           />
         </View>
+
+        {/* Email */}
         <View style={styles.inputView}>
           <TextInput
             value={email}
             onChangeText={setEmail}
             placeholder="Enter email"
+            placeholderTextColor="grey"
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
           />
         </View>
+
+        {/* Phone */}
         <View style={styles.inputView}>
           <TextInput
             value={phone}
             onChangeText={setPhone}
             placeholder="Enter mobile number"
+            placeholderTextColor="grey"
             style={styles.input}
             keyboardType="phone-pad"
           />
         </View>
+
+        {/* Password */}
         <View style={styles.inputView}>
           <TextInput
             value={password}
             onChangeText={setPassword}
             placeholder="Password"
-            style={styles.input}
+            placeholderTextColor="grey"
+            style={styles.passwordInput}
             secureTextEntry={isSecure}
           />
           <TouchableOpacity onPress={() => setIsSecure(!isSecure)}>
             <Octicons name={isSecure ? "eye-closed" : "eye"} size={20} color="grey" />
           </TouchableOpacity>
         </View>
+
+        {/* Confirm Password */}
+        <View style={styles.inputView}>
+          <TextInput
+            value={confirmPassword}
+            onChangeText={setConfirmPassword}
+            placeholder="Confirm Password"
+            placeholderTextColor="grey"
+            style={styles.passwordInput}
+            secureTextEntry={isConfirmSecure}
+          />
+          <TouchableOpacity onPress={() => setIsConfirmSecure(!isConfirmSecure)}>
+            <Octicons name={isConfirmSecure ? "eye-closed" : "eye"} size={20} color="grey" />
+          </TouchableOpacity>
+        </View>
+
         <AppButton
           onPress={handleRegister}
           label={loading ? 'Registering...' : 'Register'}
@@ -160,9 +195,7 @@ function RegisterScreen(props) {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   blurContainer: {
     ...StyleSheet.absoluteFill,
     paddingTop: paddingTop,
@@ -179,7 +212,7 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFill,
   },
   inputView: {
-    backgroundColor: colors.white,
+    backgroundColor: '#ffffffaa', // semi-transparent white
     borderRadius: radius._15,
     marginTop: spacingY._15,
     shadowColor: colors.lightPink,
@@ -194,6 +227,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacingX._20,
     fontSize: normalizeY(16),
     flex: 1,
+    color: colors.black,
+  },
+  passwordInput: {
+    paddingVertical: spacingY._20,
+    paddingHorizontal: spacingX._20,
+    fontSize: normalizeY(16),
+    flex: 1,
+    color: colors.black,
   },
   text: {
     fontWeight: '600',

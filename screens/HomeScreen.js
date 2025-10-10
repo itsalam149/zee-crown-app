@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback, useContext, useMemo, useRef } 
 import { View, StyleSheet, FlatList, TouchableOpacity, Keyboard, ActivityIndicator, Dimensions, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Pill, Droplet, Dumbbell, SprayCan, LayoutGrid } from 'lucide-react-native';
-import Animated, { FadeInDown, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
+import Animated, { FadeInDown, FadeIn, useSharedValue, useAnimatedStyle, withTiming, interpolate } from 'react-native-reanimated';
 import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
 
@@ -47,6 +47,10 @@ function HomeScreen({ navigation }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState(null);
 
+  // Smooth transition states
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const [displayedProducts, setDisplayedProducts] = useState([]);
+
   const headerAnimation = useSharedValue(1);
   const bannerRef = useRef(null);
   const [bannerIndex, setBannerIndex] = useState(0);
@@ -54,6 +58,7 @@ function HomeScreen({ navigation }) {
   // refs for debounce and abort control
   const searchControllerRef = useRef(null);
   const debounceTimeoutRef = useRef(null);
+  const transitionTimeoutRef = useRef(null);
 
   // Fetch banners
   useEffect(() => {
@@ -100,9 +105,10 @@ function HomeScreen({ navigation }) {
     return { height, opacity, overflow: 'hidden' };
   });
 
-  // 🔧 Fixed: Debounced search + ignore AbortError
+  // 🚀 OPTIMIZED: Smooth transition with debounced search
   useEffect(() => {
     if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+    if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
 
     debounceTimeoutRef.current = setTimeout(() => {
       if (searchControllerRef.current) searchControllerRef.current.abort();
@@ -110,7 +116,14 @@ function HomeScreen({ navigation }) {
       searchControllerRef.current = controller;
 
       const fetchProducts = async () => {
-        setLoading(true);
+        // Start transition immediately for instant feedback
+        setIsTransitioning(true);
+
+        // Delay loading state to prevent flicker on fast responses
+        const loadingTimeout = setTimeout(() => {
+          setLoading(true);
+        }, 100);
+
         try {
           let query = supabase.from('products').select('*', { count: 'exact' }).range(0, PAGE_SIZE - 1);
           if (searchQuery.trim()) query = query.ilike('name', `%${searchQuery.trim()}%`);
@@ -119,30 +132,43 @@ function HomeScreen({ navigation }) {
           else query = query.order('id', { ascending: false });
 
           const { data, error, count } = await query;
-          if (error && error.name !== 'AbortError') throw error;
 
-          setProducts(data || []);
-          setHasMore((data || []).length < (count || 0));
-          setPage(1);
+          clearTimeout(loadingTimeout);
+
+          if (error && error.name !== 'AbortError') throw error;
+          if (controller.signal.aborted) return;
+
+          // Smooth transition: wait a bit before updating to allow fade out
+          transitionTimeoutRef.current = setTimeout(() => {
+            setProducts(data || []);
+            setDisplayedProducts(data || []);
+            setHasMore((data || []).length < (count || 0));
+            setPage(1);
+            setIsTransitioning(false);
+            setLoading(false);
+          }, 150);
+
         } catch (err) {
-          if (err.name === 'AbortError') return; // ✅ ignore abort
+          clearTimeout(loadingTimeout);
+          if (err.name === 'AbortError') return;
           console.error('❌ Fetch error:', err.message);
-        } finally {
-          if (!controller.signal.aborted) setLoading(false);
+          setIsTransitioning(false);
+          setLoading(false);
         }
       };
 
       fetchProducts();
-    }, 500);
+    }, 300); // Reduced debounce for snappier feel
 
     return () => {
       if (debounceTimeoutRef.current) clearTimeout(debounceTimeoutRef.current);
+      if (transitionTimeoutRef.current) clearTimeout(transitionTimeoutRef.current);
       if (searchControllerRef.current) searchControllerRef.current.abort();
     };
   }, [searchQuery, selectedCategory, sortBy]);
 
-  const handleLoadMore = async () => {
-    if (loading || loadingMore || !hasMore) return;
+  const handleLoadMore = useCallback(async () => {
+    if (loading || loadingMore || !hasMore || isTransitioning) return;
     setLoadingMore(true);
     try {
       const from = page * PAGE_SIZE;
@@ -160,7 +186,13 @@ function HomeScreen({ navigation }) {
       if (newProducts.length > 0) {
         setProducts(prev => {
           const existingIds = new Set(prev.map(p => p.id));
-          return [...prev, ...newProducts.filter(p => !existingIds.has(p.id))];
+          const filtered = newProducts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...filtered];
+        });
+        setDisplayedProducts(prev => {
+          const existingIds = new Set(prev.map(p => p.id));
+          const filtered = newProducts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...filtered];
         });
         setPage(prev => prev + 1);
         setHasMore(products.length + newProducts.length < (count || 0));
@@ -170,7 +202,7 @@ function HomeScreen({ navigation }) {
     } finally {
       setLoadingMore(false);
     }
-  };
+  }, [loading, loadingMore, hasMore, isTransitioning, page, searchQuery, selectedCategory, sortBy, products.length]);
 
   const handleCategoryFilter = useCallback((categoryItem) => {
     if (selectedCategory === categoryItem.name) return;
@@ -180,27 +212,29 @@ function HomeScreen({ navigation }) {
     setTheme(categoryItem);
   }, [selectedCategory]);
 
+  // 🚀 OPTIMIZED: Simplified render with conditional animation
   const renderProductItem = useCallback(({ item, index }) => {
     if (item.id === 'upload_prescription') {
       return (
-        <Animated.View entering={FadeInDown.delay(index * 50).duration(400).springify()}>
+        <Animated.View entering={!isTransitioning ? FadeIn.duration(300) : undefined}>
           <UploadPrescriptionCard />
         </Animated.View>
       );
     }
     return (
-      <Animated.View entering={FadeInDown.delay(index * 50).duration(400).springify()}>
+      <Animated.View entering={!isTransitioning ? FadeIn.duration(300).delay(Math.min(index * 30, 300)) : undefined}>
         <ProductCard item={item} themeColor={theme.color} />
       </Animated.View>
     );
-  }, [theme.color]);
+  }, [theme.color, isTransitioning]);
 
   const dataWithPrescriptionCard = useMemo(() => {
-    if ((selectedCategory === 'All' || selectedCategory === 'medicine') && products.length > 0) {
-      return [{ id: 'upload_prescription' }, ...products];
+    const productsToShow = isTransitioning ? [] : displayedProducts;
+    if ((selectedCategory === 'All' || selectedCategory === 'medicine') && productsToShow.length > 0) {
+      return [{ id: 'upload_prescription' }, ...productsToShow];
     }
-    return products;
-  }, [selectedCategory, products]);
+    return productsToShow;
+  }, [selectedCategory, displayedProducts, isTransitioning]);
 
   const ListHeader = useMemo(() => (
     <>
@@ -258,7 +292,7 @@ function HomeScreen({ navigation }) {
   }, [loadingMore, theme.color]);
 
   const ListEmpty = useMemo(() => {
-    if (loading) {
+    if (loading || isTransitioning) {
       return (
         <View style={styles.skeletonContainer}>
           {[...Array(6)].map((_, index) => <ProductCardSkeleton key={`skeleton-${index}`} />)}
@@ -272,7 +306,7 @@ function HomeScreen({ navigation }) {
         <Typo size={14} style={{ color: colors.gray, marginTop: 8, opacity: 0.7 }}>Try adjusting your search or filters</Typo>
       </View>
     );
-  }, [loading]);
+  }, [loading, isTransitioning]);
 
   return (
     <ScreenComponent style={{ backgroundColor: 'transparent' }}>
@@ -296,10 +330,15 @@ function HomeScreen({ navigation }) {
         ListFooterComponent={ListFooter}
         ListEmptyComponent={ListEmpty}
         contentContainerStyle={[styles.listContent, { paddingTop: 10 }]}
-        columnWrapperStyle={products.length > 0 ? styles.columnWrapper : null}
+        columnWrapperStyle={dataWithPrescriptionCard.length > 0 ? styles.columnWrapper : null}
         showsVerticalScrollIndicator={false}
         onEndReached={handleLoadMore}
         onEndReachedThreshold={0.5}
+        removeClippedSubviews={true}
+        maxToRenderPerBatch={10}
+        updateCellsBatchingPeriod={50}
+        initialNumToRender={10}
+        windowSize={10}
       />
 
       <FilterModal visible={filterModalVisible} setVisible={setFilterModalVisible} onApplySort={setSortBy} />
