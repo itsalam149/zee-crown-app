@@ -13,6 +13,7 @@ import colors from '../config/colors';
 import { radius, spacingX, spacingY } from '../config/spacing';
 
 const getStatusStyle = (status) => {
+    // ... (rest of the function is unchanged)
     switch (status?.toLowerCase()) {
         case 'delivered':
             return {
@@ -47,6 +48,7 @@ const getStatusStyle = (status) => {
 };
 
 const getPaymentTypeDisplay = (paymentMethod) => {
+    // ... (rest of the function is unchanged)
     if (!paymentMethod) return { text: 'N/A', icon: 'help-circle' };
     const lower = paymentMethod.toLowerCase();
     if (lower === 'online' || lower === 'card' || lower === 'upi')
@@ -78,6 +80,7 @@ function OrderDetailScreen() {
         try {
             setLoading(true);
 
+            // Fetch the core order details with its items
             const { data: orderData, error: orderError } = await supabase
                 .from('orders')
                 .select(`
@@ -92,6 +95,7 @@ function OrderDetailScreen() {
 
             if (orderError) throw orderError;
 
+            // Calculate billing details from order items
             if (orderData?.order_items) {
                 const subtotal = orderData.order_items.reduce((acc, item) =>
                     acc + item.quantity * item.price_at_purchase, 0);
@@ -99,40 +103,25 @@ function OrderDetailScreen() {
                 setBillDetails({ subtotal, shipping: shipping >= 0 ? shipping : 0 });
             }
 
-            let addressData = null;
-            if (orderData.shipping_address) {
-                const addressId = parseInt(orderData.shipping_address, 10);
-                if (!isNaN(addressId)) {
-                    const { data: addr } = await supabase
-                        .from('addresses')
-                        .select('*')
-                        .eq('id', addressId)
-                        .single();
-                    addressData = addr;
-                } else {
-                    try {
-                        addressData = JSON.parse(orderData.shipping_address);
-                    } catch {
-                        addressData = { street_address: orderData.shipping_address };
-                    }
-                }
-            }
-
-            if (addressData && !addressData.mobile_number && orderData.user_id) {
-                const { data: userAddresses } = await supabase
+            let fetchedAddress = null;
+            // ✅ Directly fetch the user's default address using user_id, just like in the first code example
+            if (orderData.user_id) {
+                const { data: userDefaultAddress, error: addressError } = await supabase
                     .from('addresses')
                     .select('*')
                     .eq('user_id', orderData.user_id)
-                    .order('is_default', { ascending: false })
-                    .limit(1);
+                    .order('is_default', { ascending: false }) // Prefer the default address
+                    .limit(1)
+                    .single(); // Fetch just one record
 
-                if (userAddresses && userAddresses.length > 0) {
-                    addressData = userAddresses[0];
+                if (addressError) {
+                    console.error("Error fetching user's default address:", addressError.message);
                 }
+                fetchedAddress = userDefaultAddress;
             }
 
             setOrder(orderData);
-            setAddress(addressData);
+            setAddress(fetchedAddress);
         } catch (err) {
             console.error('Error fetching order details:', err.message);
         } finally {
@@ -141,6 +130,7 @@ function OrderDetailScreen() {
     };
 
     if (loading) {
+        // ... (loading component is unchanged)
         return (
             <ScreenComponent style={{ backgroundColor: colors.white }}>
                 <Header label="Order Details" />
@@ -166,10 +156,12 @@ function OrderDetailScreen() {
     };
 
     const getMobileNumber = () => {
+        // This will now correctly get the number from the fetched address
         return address?.mobile_number || 'Not available';
     };
 
     return (
+        // ... (The rest of your JSX and styles are unchanged)
         <ScreenComponent style={{ backgroundColor: '#F8F9FA' }}>
             <Header label="Order Details" />
             <ScrollView
@@ -356,6 +348,7 @@ function OrderDetailScreen() {
 }
 
 const styles = StyleSheet.create({
+    // ... (styles are unchanged)
     container: {
         padding: spacingX._20,
         paddingTop: spacingY._15
@@ -365,8 +358,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center'
     },
-
-    // Status Card
     statusCard: {
         borderRadius: radius._20,
         padding: spacingX._20,
@@ -410,8 +401,6 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         fontSize: 14,
     },
-
-    // Card Styles
     card: {
         backgroundColor: 'white',
         borderRadius: radius._15,
@@ -433,8 +422,6 @@ const styles = StyleSheet.create({
         marginLeft: spacingX._10,
         color: colors.black,
     },
-
-    // Info Row
     infoRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -474,8 +461,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#F0F0F0',
         marginVertical: spacingY._10,
     },
-
-    // Product Card
     productCard: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -531,8 +516,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
         marginVertical: spacingY._5,
     },
-
-    // Bill Summary
     billRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',

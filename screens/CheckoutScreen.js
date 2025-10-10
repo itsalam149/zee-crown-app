@@ -134,7 +134,7 @@ function CheckoutScreen() {
         setFreeShippingThreshold(freeShippingRule?.min_order_value || 0);
         if (subtotal > 0) {
           const applicableRule = data.find(rule => subtotal >= rule.min_order_value);
-          setShippingFee(applicableRule ? applicableRule.charge : 40); // Fallback charge
+          setShippingFee(applicableRule ? applicableRule.charge : 40);
         } else {
           setShippingFee(0);
         }
@@ -153,6 +153,12 @@ function CheckoutScreen() {
       Toast.show({ type: 'error', text1: 'Please select an address.' });
       return;
     }
+
+    // Log to verify correct address is selected
+    console.log('Selected Address ID:', selectedAddress);
+    const selectedAddressData = addresses.find(addr => addr.id === selectedAddress);
+    console.log('Selected Address Data:', selectedAddressData);
+
     if (selectedPaymentMethod === 'ONLINE') {
       await handleOnlinePayment();
     } else {
@@ -190,14 +196,13 @@ function CheckoutScreen() {
           name: user.user_metadata?.full_name || 'Customer'
         },
         theme: { color: colors.primary },
-        method: {   // <-- Add this block
+        method: {
           card: true,
           netbanking: true,
           wallet: true,
-          upi: true, // ✅ Enable UPI explicitly
+          upi: true,
         },
       };
-
 
       RazorpayCheckout.open(options)
         .then(async (data) => {
@@ -223,24 +228,47 @@ function CheckoutScreen() {
 
   const createOrderInSupabase = async (paymentMethod) => {
     setIsProcessingOrder(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    const { error } = await supabase.functions.invoke('create-order', {
-      body: { address_id: selectedAddress, payment_method: paymentMethod },
-      headers: { Authorization: `Bearer ${session.access_token}` },
-    });
-    setIsProcessingOrder(false);
-    if (error) {
-      Toast.show({ type: 'error', text1: 'Order Error', text2: error.message });
-    } else {
-      Toast.show({ type: 'success', text1: 'Order Placed!', text2: `Your ${paymentMethod} order has been placed successfully.` });
-      navigation.navigate('Home');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      // Log the address ID being sent
+      console.log('Creating order with address_id:', selectedAddress);
+
+      const { data, error } = await supabase.functions.invoke('create-order', {
+        body: {
+          address_id: selectedAddress,  // This is the actual selected address ID
+          payment_method: paymentMethod
+        },
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+
+      if (error) {
+        console.error('Order creation error:', error);
+        Toast.show({ type: 'error', text1: 'Order Error', text2: error.message });
+      } else {
+        console.log('Order created successfully:', data);
+        Toast.show({
+          type: 'success',
+          text1: 'Order Placed!',
+          text2: `Your ${paymentMethod} order has been placed successfully.`
+        });
+        navigation.navigate('Home');
+      }
+    } catch (err) {
+      console.error('Exception during order creation:', err);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to create order.' });
+    } finally {
+      setIsProcessingOrder(false);
     }
   };
 
   const renderAddressCard = ({ item }) => (
     <TouchableOpacity
       style={[styles.addressCard, selectedAddress === item.id && styles.selectedAddressCard]}
-      onPress={() => setSelectedAddress(item.id)}
+      onPress={() => {
+        console.log('Address selected:', item.id); // Debug log
+        setSelectedAddress(item.id);
+      }}
     >
       <View style={{ flex: 1 }}>
         <Typo style={{ fontWeight: 'bold' }}>{item.house_no}, {item.street_address}</Typo>
@@ -249,7 +277,13 @@ function CheckoutScreen() {
         <Typo>{item.country}</Typo>
         <Typo style={{ marginTop: 5, color: colors.gray }}>Mobile: {item.mobile_number}</Typo>
       </View>
-      <TouchableOpacity style={styles.editButton} onPress={() => navigation.navigate('EditAddress', { address: item })}>
+      <TouchableOpacity
+        style={styles.editButton}
+        onPress={(e) => {
+          e.stopPropagation(); // Prevent triggering address selection
+          navigation.navigate('EditAddress', { address: item });
+        }}
+      >
         <MaterialIcons name="edit" size={20} color={colors.white} />
       </TouchableOpacity>
     </TouchableOpacity>
@@ -260,9 +294,19 @@ function CheckoutScreen() {
       <Header label={'Checkout'} />
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 200 }}>
         <Typo size={18} style={styles.sectionTitle}>Shipping Address</Typo>
-        {loading ? <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} /> : addresses.length > 0 && !showAddAddress ? (
+        {loading ? (
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginVertical: 20 }} />
+        ) : addresses.length > 0 && !showAddAddress ? (
           <>
-            <FlatList data={addresses} renderItem={renderAddressCard} keyExtractor={item => item.id} horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingVertical: spacingY._10 }} />
+            <FlatList
+              data={addresses}
+              renderItem={renderAddressCard}
+              keyExtractor={item => item.id}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingVertical: spacingY._10 }}
+              extraData={selectedAddress} // Re-render when selectedAddress changes
+            />
             <TouchableOpacity style={styles.addAddressButton} onPress={() => setShowAddAddress(true)}>
               <Ionicons name="add-circle" size={22} color={colors.primary} />
               <Typo style={{ fontWeight: 'bold', color: colors.primary }}>Add New Address</Typo>
@@ -305,7 +349,11 @@ function CheckoutScreen() {
           <Typo style={styles.priceLabel}>Total</Typo>
           <Typo style={styles.priceValue}>₹{total.toFixed(2)}</Typo>
         </View>
-        <AppButton label={isProcessingOrder ? 'Placing Order...' : `Confirm Order (${selectedPaymentMethod})`} onPress={handleConfirmOrder} disabled={isProcessingOrder || loading} />
+        <AppButton
+          label={isProcessingOrder ? 'Placing Order...' : `Confirm Order (${selectedPaymentMethod})`}
+          onPress={handleConfirmOrder}
+          disabled={isProcessingOrder || loading}
+        />
       </View>
     </ScreenComponent>
   );
