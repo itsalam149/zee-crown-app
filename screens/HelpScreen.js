@@ -8,13 +8,15 @@ import {
     Linking,
     Alert,
     Animated,
+    Image, // Import the Image component
 } from 'react-native';
 import ScreenComponent from 'components/ScreenComponent';
 import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { spacingX, spacingY, radius } from 'config/spacing';
 import { Ionicons, MaterialIcons, Feather, FontAwesome } from '@expo/vector-icons';
-import Header from 'components/Header';
+// The generic Header component is no longer needed for this screen
+// import Header from 'components/Header';
 import { normalizeY } from 'utils/normalize';
 
 function HelpScreen({ navigation }) {
@@ -189,7 +191,20 @@ function HelpScreen({ navigation }) {
 
     return (
         <ScreenComponent style={styles.container}>
-            <Header label="Help" onBack={() => navigation.goBack()} />
+            {/* --- Custom Header with Icon --- */}
+            <View style={styles.headerContainer}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerBackButton}>
+                    <Ionicons name="arrow-back" size={24} color={colors.black} />
+                </TouchableOpacity>
+                <Image
+                    source={require('../assets/icon.png')} // Assuming assets folder is one level up
+                    style={styles.headerLogo}
+                />
+                <Typo size={20} style={styles.headerTitle}>
+                    Help
+                </Typo>
+            </View>
+
             <ScrollView contentContainerStyle={styles.scrollContent}>
                 {/* Animated Header Section */}
                 <Animated.View
@@ -294,6 +309,30 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: colors.white
     },
+    // --- Styles for the new Custom Header ---
+    headerContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: spacingX._15,
+        paddingVertical: spacingY._12,
+        backgroundColor: colors.white,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    headerBackButton: {
+        padding: spacingX._5,
+    },
+    headerLogo: {
+        width: 32,
+        height: 32,
+        marginLeft: spacingX._15,
+        marginRight: spacingX._10,
+    },
+    headerTitle: {
+        fontWeight: '600',
+        color: colors.black,
+    },
+    // --- End of Custom Header Styles ---
     scrollContent: {
         paddingHorizontal: spacingX._20,
         paddingVertical: spacingY._20,

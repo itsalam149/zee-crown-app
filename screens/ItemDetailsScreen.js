@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Dimensions,
   Modal,
-  Platform, // <-- FIXED: Added the missing Platform import
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -23,6 +23,7 @@ import Animated, {
   withSpring,
   withTiming,
 } from 'react-native-reanimated';
+import Toast from 'react-native-toast-message';
 import useAuth from '../auth/useAuth';
 import ItemImageSlider from '../components/ItemImageSlider';
 import { supabase } from '../lib/supabase';
@@ -65,6 +66,7 @@ function ItemDetailsScreen({ route, navigation }) {
   const { user } = useAuth();
   const [quantity, setQuantity] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [isBuyingNow, setIsBuyingNow] = useState(false);
   const [showLoginPopup, setShowLoginPopup] = useState(false);
   const [showSuccessToast, setShowSuccessToast] = useState(false);
 
@@ -94,7 +96,7 @@ function ItemDetailsScreen({ route, navigation }) {
     setTimeout(() => setShowSuccessToast(false), 2000);
   };
 
-  const addToCart = async () => {
+  const handleAddToCart = async () => {
     if (!user) return showLoginPrompt();
     setLoading(true);
     const { error } = await supabase.from('cart_items').upsert({
@@ -102,13 +104,30 @@ function ItemDetailsScreen({ route, navigation }) {
       product_id: item.id,
       quantity: quantity,
     }, { onConflict: 'user_id, product_id' });
-    setLoading(false);
+
     if (error) {
       console.error('Error adding to cart:', error);
+      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not add item to cart.' });
     } else {
       triggerSuccessToast();
     }
+    setLoading(false);
   };
+
+  const handleBuyNow = () => {
+    if (!user) return showLoginPrompt();
+
+    // Create an item structure that CheckoutScreen can use
+    const buyNowItem = {
+      product_id: item.id,
+      quantity: quantity,
+      products: item // Pass the full product object for display
+    };
+
+    // Navigate to checkout with the special 'buyNowItem' param
+    navigation.navigate('Checkout', { buyNowItem });
+  };
+
 
   return (
     <SafeAreaView style={styles.container}>
@@ -158,8 +177,11 @@ function ItemDetailsScreen({ route, navigation }) {
         </ScrollView>
 
         <View style={styles.footer}>
-          <Pressable style={({ pressed }) => [styles.addToCartButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={addToCart} disabled={loading}>
-            {loading ? <ActivityIndicator size="small" color={colors.white} /> : <Typo style={styles.addToCartLabel}>Add to Cart</Typo>}
+          <Pressable style={({ pressed }) => [styles.addToCartButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={handleAddToCart} disabled={loading || isBuyingNow}>
+            {loading ? <ActivityIndicator size="small" color={colors.black} /> : <Typo style={styles.addToCartLabel}>Add to Cart</Typo>}
+          </Pressable>
+          <Pressable style={({ pressed }) => [styles.buyNowButton, { transform: [{ scale: pressed ? 0.98 : 1 }] }]} onPress={handleBuyNow} disabled={loading || isBuyingNow}>
+            {isBuyingNow ? <ActivityIndicator size="small" color={colors.white} /> : <Typo style={styles.buyNowLabel}>Buy Now</Typo>}
           </Pressable>
         </View>
 
@@ -271,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: spacingX._15
   },
-  countButton: { color: colors.dark, fontWeight: '600', fontSize: 24 },
+  countButton: { color: colors.black, fontWeight: '600', fontSize: 24 },
   countText: { color: colors.black, fontWeight: '700', fontSize: 20 },
   footer: {
     position: 'absolute',
@@ -284,20 +306,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.white,
     borderTopWidth: 1,
     borderTopColor: colors.lightGray,
+    flexDirection: 'row',
+    gap: spacingX._15,
   },
   addToCartButton: {
-    backgroundColor: colors.black,
+    flex: 1,
+    backgroundColor: colors.lighterGray,
     height: 55,
     borderRadius: radius._30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-    elevation: 8
   },
-  addToCartLabel: { color: colors.white, fontSize: 16, fontWeight: '700' },
+  addToCartLabel: { color: colors.black, fontSize: 16, fontWeight: '700' },
+  buyNowButton: {
+    flex: 1,
+    backgroundColor: colors.primary,
+    height: 55,
+    borderRadius: radius._30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 8,
+  },
+  buyNowLabel: { color: colors.white, fontSize: 16, fontWeight: '700' },
   toastWrapper: { ...StyleSheet.absoluteFillObject, justifyContent: 'center', alignItems: 'center', zIndex: 100 },
   toastContainer: { backgroundColor: 'rgba(0, 0, 0, 0.8)', borderRadius: radius._20, paddingVertical: spacingY._15, paddingHorizontal: spacingX._20, flexDirection: 'column', alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 5, elevation: 10 },
   toastText: { color: colors.white, fontWeight: '700', fontSize: 16, marginTop: spacingY._10 },

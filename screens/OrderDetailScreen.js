@@ -1,7 +1,7 @@
 // screens/OrderDetailScreen.js
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, ScrollView, Image, ActivityIndicator } from 'react-native';
-import { useRoute } from '@react-navigation/native';
+import { View, StyleSheet, ScrollView, Image, ActivityIndicator, Pressable } from 'react-native';
+import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -11,6 +11,8 @@ import Header from '../components/Header';
 import Typo from '../components/Typo';
 import colors from '../config/colors';
 import { radius, spacingX, spacingY } from '../config/spacing';
+import useAuth from '../auth/useAuth';
+import Toast from 'react-native-toast-message';
 
 const getStatusStyle = (status) => {
     // ... (rest of the function is unchanged)
@@ -60,12 +62,15 @@ const getPaymentTypeDisplay = (paymentMethod) => {
 
 function OrderDetailScreen() {
     const route = useRoute();
+    const navigation = useNavigation();
+    const { user } = useAuth();
     const { order: initialOrder } = route.params;
 
     const [order, setOrder] = useState(initialOrder);
     const [address, setAddress] = useState(null);
     const [billDetails, setBillDetails] = useState({ subtotal: 0, shipping: 0 });
     const [loading, setLoading] = useState(true);
+    const [isBuying, setIsBuying] = useState(false);
 
     const statusStyle = getStatusStyle(order.status);
     const paymentInfo = getPaymentTypeDisplay(order.payment_method);
@@ -75,6 +80,47 @@ function OrderDetailScreen() {
             fetchCompleteOrderData();
         }
     }, [initialOrder.id]);
+
+    const handleBuyAgain = async () => {
+        if (!user || !order.order_items) return;
+
+        setIsBuying(true);
+        try {
+            const itemsToUpsert = order.order_items.map(item => ({
+                user_id: user.id,
+                product_id: item.products.id,
+                quantity: item.quantity,
+            }));
+
+            // This will either insert new items or update quantities if they already exist in the cart
+            const { error } = await supabase.from('cart_items').upsert(itemsToUpsert, {
+                onConflict: 'user_id, product_id'
+            });
+
+            if (error) {
+                throw error;
+            }
+
+            Toast.show({
+                type: 'success',
+                text1: 'Items Added to Cart',
+                text2: 'Proceed to checkout to complete your purchase.'
+            });
+
+            navigation.navigate('Checkout');
+
+        } catch (error) {
+            console.error('Error in Buy Again:', error);
+            Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Could not add items to cart.'
+            });
+        } finally {
+            setIsBuying(false);
+        }
+    };
+
 
     const fetchCompleteOrderData = async () => {
         try {
@@ -141,7 +187,7 @@ function OrderDetailScreen() {
     }
 
     const getFormattedAddress = () => {
-        if (!address) return 'Address not available';
+        if (!address) return order.shipping_address || 'Address not available';
         const parts = [
             address.house_no,
             address.street_address,
@@ -341,6 +387,22 @@ function OrderDetailScreen() {
 
                 <View style={{ height: 20 }} />
             </ScrollView>
+            <View style={styles.footer}>
+                <Pressable
+                    style={({ pressed }) => [
+                        styles.buyAgainButton,
+                        { transform: [{ scale: pressed ? 0.98 : 1 }] }
+                    ]}
+                    onPress={handleBuyAgain}
+                    disabled={isBuying}
+                >
+                    {isBuying ? (
+                        <ActivityIndicator size="small" color={colors.white} />
+                    ) : (
+                        <Typo style={styles.buyAgainLabel}>Buy Again</Typo>
+                    )}
+                </Pressable>
+            </View>
         </ScreenComponent>
     );
 }
@@ -550,6 +612,29 @@ const styles = StyleSheet.create({
         fontSize: 24,
         fontWeight: 'bold',
         color: colors.primary,
+    },
+    footer: {
+        padding: spacingX._20,
+        backgroundColor: colors.white,
+        borderTopWidth: 1,
+        borderTopColor: colors.lighterGray,
+    },
+    buyAgainButton: {
+        backgroundColor: colors.primary,
+        height: 55,
+        borderRadius: radius._30,
+        justifyContent: 'center',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 5,
+        elevation: 8
+    },
+    buyAgainLabel: {
+        color: colors.white,
+        fontSize: 16,
+        fontWeight: '700'
     },
 });
 

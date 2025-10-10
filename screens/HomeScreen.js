@@ -60,11 +60,19 @@ function HomeScreen({ navigation }) {
   const debounceTimeoutRef = useRef(null);
   const transitionTimeoutRef = useRef(null);
 
-  // Fetch banners
+  // Fetch banners based on selected category
   useEffect(() => {
     const fetchBanners = async () => {
       try {
-        const { data, error } = await supabase.from('banners').select('*').order('id', { ascending: true });
+        let query = supabase.from('banners').select('*').eq('is_active', true);
+
+        // Filter by category, but always include 'All'
+        if (selectedCategory !== 'All') {
+          query = query.in('category', [selectedCategory, 'All']);
+        }
+
+        const { data, error } = await query.order('id', { ascending: true });
+
         if (error) throw error;
         setBanners(data || []);
       } catch (err) {
@@ -72,7 +80,8 @@ function HomeScreen({ navigation }) {
       }
     };
     fetchBanners();
-  }, []);
+  }, [selectedCategory]);
+
 
   // Auto-loop banners
   useEffect(() => {
@@ -312,7 +321,20 @@ function HomeScreen({ navigation }) {
     <ScreenComponent style={{ backgroundColor: 'transparent' }}>
       <LinearGradient colors={theme.gradient} style={StyleSheet.absoluteFill} />
       <View style={styles.header}>
-        <SearchBar value={searchQuery} onChangeText={setSearchQuery} placeholder="Search products..." />
+        <Image
+          size='large'
+          source={require('../assets/icon.png')}
+          style={styles.headerLogo}
+        />
+        <SearchBar
+          style={styles.searchBar}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder="Search products..."
+          // --- MODIFICATION START ---
+          placeholderTextColor="#333" // Sets the placeholder text color to dark gray
+        // --- MODIFICATION END ---
+        />
         <TouchableOpacity style={styles.iconButton} onPress={() => setFilterModalVisible(true)}>
           <Ionicons name="filter-outline" size={22} color="#333" />
         </TouchableOpacity>
@@ -348,6 +370,22 @@ function HomeScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacingX._20, paddingTop: spacingY._10, paddingBottom: spacingY._5, backgroundColor: 'transparent', zIndex: 10, gap: spacingX._10 },
+  headerLogo: {
+    width: 40,
+    height: 40,
+    resizeMode: 'contain',
+  },
+  searchBar: {
+    flex: 1,
+    backgroundColor: colors.white, // This keeps the background white
+    borderRadius: radius._20,
+    height: 44, // Align height with filter button
+    elevation: 2, // Add shadow for depth
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 1.41,
+  },
   iconButton: { backgroundColor: 'rgba(255, 255, 255, 0.9)', padding: spacingY._10, borderRadius: radius._20, justifyContent: 'center', alignItems: 'center', width: 44, height: 44, elevation: 3 },
   notificationButton: { backgroundColor: 'rgba(255, 255, 255, 0.9)', padding: spacingY._12, borderRadius: radius._20, justifyContent: 'center', alignItems: 'center', width: 48, height: 48, elevation: 3 },
   catContainer: { paddingHorizontal: spacingX._15, paddingVertical: spacingY._15, gap: spacingX._12 },

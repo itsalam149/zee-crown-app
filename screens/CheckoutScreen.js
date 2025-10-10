@@ -1,5 +1,6 @@
+// screens/CheckoutScreen.js
 import React, { useState, useCallback, useEffect } from 'react';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
 import {
   View,
   StyleSheet,
@@ -54,6 +55,7 @@ const FreeShippingBar = ({ subtotal, threshold }) => {
 
 function CheckoutScreen() {
   const navigation = useNavigation();
+  const route = useRoute();
   const { user } = useAuth();
   const [addresses, setAddresses] = useState([]);
   const [selectedAddress, setSelectedAddress] = useState(null);
@@ -73,6 +75,8 @@ function CheckoutScreen() {
   const [shippingFee, setShippingFee] = useState(0);
   const [freeShippingThreshold, setFreeShippingThreshold] = useState(0);
 
+  const { buyNowItem } = route.params || {};
+
   useFocusEffect(
     useCallback(() => {
       async function fetchData() {
@@ -81,24 +85,42 @@ function CheckoutScreen() {
           return;
         }
         setLoading(true);
-        const [addressRes, cartRes] = await Promise.all([
-          supabase.from('addresses').select('*').eq('user_id', user.id).order('is_default', { ascending: false }),
-          supabase.from('cart_items').select('*, products(*)').eq('user_id', user.id),
-        ]);
-        if (addressRes.data) {
-          setAddresses(addressRes.data);
-          if (addressRes.data.length > 0) {
-            setSelectedAddress(addressRes.data[0].id);
+
+        if (buyNowItem) {
+          setCartItems([buyNowItem]);
+        } else {
+          const { data: cartData, error: cartError } = await supabase
+            .from('cart_items')
+            .select('*, products(*)')
+            .eq('user_id', user.id);
+          if (cartError) {
+            Toast.show({ type: 'error', text1: 'Error', text2: 'Could not fetch cart.' });
+          } else {
+            setCartItems(cartData || []);
+          }
+        }
+
+        const { data: addressData, error: addressError } = await supabase
+          .from('addresses')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('is_default', { ascending: false });
+
+        if (addressError) {
+          Toast.show({ type: 'error', text1: 'Error', text2: 'Could not fetch addresses.' });
+        } else if (addressData) {
+          setAddresses(addressData);
+          if (addressData.length > 0) {
+            setSelectedAddress(addressData[0].id);
             setShowAddAddress(false);
           } else {
             setShowAddAddress(true);
           }
         }
-        if (cartRes.data) setCartItems(cartRes.data);
         setLoading(false);
       }
       fetchData();
-    }, [user])
+    }, [user, buyNowItem])
   );
 
   const handleAddAddress = async () => {
@@ -148,107 +170,118 @@ function CheckoutScreen() {
 
   const total = subtotal + shippingFee;
 
+  const createStandardOrder = async (paymentMethod) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const { data, error } = await supabase.functions.invoke('create-order', {
+      body: {
+        address_id: selectedAddress,
+        payment_method: paymentMethod
+      },
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+
+    if (error) {
+      throw new Error(error.message || "Failed to create order.");
+    }
+
+    Toast.show({
+      type: 'success',
+      text1: 'Order Placed!',
+      text2: `Your ${paymentMethod} order has been placed successfully.`
+    });
+    navigation.navigate('Home');
+  };
+
   const handleConfirmOrder = async () => {
     if (!selectedAddress) {
       Toast.show({ type: 'error', text1: 'Please select an address.' });
       return;
     }
 
-    if (selectedPaymentMethod === 'ONLINE') {
-      await handleOnlinePayment();
-    } else {
-      await handleCodOrder();
-    }
-  };
-
-  const handleOnlinePayment = async () => {
-    if (total <= 0) {
-      Toast.show({ type: 'error', text1: 'Cannot process payment for zero amount.' });
-      return;
-    }
     setIsProcessingOrder(true);
+    let originalCart = null;
+
     try {
-      const { data: orderData, error: orderError } = await supabase.functions.invoke(
-        'create-razorpay-order',
-        { body: { amount: total, currency: 'INR', receipt: `receipt_${Date.now()}` } }
-      );
-      if (orderError) throw new Error(orderError.message);
+      // --- BUY NOW LOGIC: CART MANIPULATION ---
+      if (buyNowItem) {
+        const { data: currentCart, error: backupError } = await supabase.from('cart_items').select('*').eq('user_id', user.id);
+        if (backupError) throw new Error("Could not back up cart.");
+        originalCart = currentCart;
 
-      const addressDetails = addresses.find(addr => addr.id === selectedAddress);
-      const contactNumber = addressDetails ? addressDetails.mobile_number : '';
+        if (originalCart && originalCart.length > 0) {
+          const { error: deleteError } = await supabase.from('cart_items').delete().eq('user_id', user.id);
+          if (deleteError) throw new Error("Could not clear cart for Buy Now.");
+        }
 
-      const options = {
-        description: 'Payment for your order',
-        image: 'https://your-logo.png',
-        currency: 'INR',
-        key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
-        amount: orderData.amount,
-        name: 'Zee Crown',
-        order_id: orderData.id,
-        prefill: {
-          email: user.email,
-          contact: contactNumber,
-          name: user.user_metadata?.full_name || 'Customer'
-        },
-        theme: { color: colors.primary },
-        method: {
-          card: true,
-          netbanking: true,
-          wallet: true,
-          upi: true,
-        },
-      };
-
-      RazorpayCheckout.open(options)
-        .then(async (data) => {
-          await createOrderInSupabase('Paid');
-        })
-        .catch((error) => {
-          if (error.code !== 2) {
-            Toast.show({ type: 'error', text1: 'Payment Failed', text2: error.description || 'An unknown error occurred.' });
-          }
+        const { error: insertError } = await supabase.from('cart_items').insert({
+          user_id: user.id,
+          product_id: buyNowItem.product_id,
+          quantity: buyNowItem.quantity
         });
-    } catch (error) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Could not initiate payment. Check logs for details.' });
-    } finally {
-      setIsProcessingOrder(false);
-    }
-  };
+        if (insertError) throw new Error("Could not add item to cart for Buy Now.");
+      }
 
-  const handleCodOrder = async () => {
-    await createOrderInSupabase('COD');
-  };
+      // --- PAYMENT AND ORDER CREATION ---
+      if (selectedPaymentMethod === 'ONLINE') {
+        const { data: orderData, error: orderError } = await supabase.functions.invoke(
+          'create-razorpay-order', { body: { amount: total, currency: 'INR', receipt: `receipt_${Date.now()}` } }
+        );
+        if (orderError) throw new Error(orderError.message);
 
-  const createOrderInSupabase = async (paymentMethod) => {
-    setIsProcessingOrder(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
+        const addressDetails = addresses.find(addr => addr.id === selectedAddress);
 
-      const { data, error } = await supabase.functions.invoke('create-order', {
-        body: {
-          address_id: selectedAddress,
-          payment_method: paymentMethod
-        },
-        headers: { Authorization: `Bearer ${session.access_token}` },
-      });
+        const options = {
+          description: 'Payment for your order',
+          image: 'https://your-logo.png',
+          currency: 'INR',
+          key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
+          amount: orderData.amount,
+          name: 'Zee Crown',
+          order_id: orderData.id,
+          prefill: {
+            email: user.email,
+            contact: addressDetails?.mobile_number || '',
+            name: user.user_metadata?.full_name || 'Customer'
+          },
+          theme: { color: colors.primary },
+        };
 
-      if (error) {
-        Toast.show({ type: 'error', text1: 'Order Error', text2: error.message });
-      } else {
-        Toast.show({
-          type: 'success',
-          text1: 'Order Placed!',
-          text2: `Your ${paymentMethod} order has been placed successfully.`
+        await new Promise((resolve, reject) => {
+          RazorpayCheckout.open(options)
+            .then(async () => {
+              try {
+                await createStandardOrder('Paid');
+                resolve();
+              } catch (e) {
+                reject(e);
+              }
+            })
+            .catch((error) => {
+              if (error.code !== 2) { // 2 = Payment Cancelled
+                Toast.show({ type: 'error', text1: 'Payment Failed', text2: error.description || 'An unknown error occurred.' });
+              }
+              reject(new Error(error.description || 'Payment Failed'));
+            });
         });
-        navigation.navigate('Home');
+      } else { // COD
+        await createStandardOrder('COD');
       }
     } catch (err) {
-      Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to create order.' });
+      Toast.show({ type: 'error', text1: 'Order Error', text2: err.message });
     } finally {
+      // --- CART RESTORE LOGIC ---
+      if (buyNowItem && originalCart !== null) {
+        await supabase.from('cart_items').delete().eq('user_id', user.id);
+        if (originalCart.length > 0) {
+          const itemsToRestore = originalCart.map(({ id, created_at, ...rest }) => rest);
+          await supabase.from('cart_items').insert(itemsToRestore);
+        }
+      }
       setIsProcessingOrder(false);
     }
   };
 
+  // ... render methods and styles are unchanged ...
   const renderAddressCard = ({ item }) => (
     <TouchableOpacity
       style={[styles.addressCard, selectedAddress === item.id && styles.selectedAddressCard]}
@@ -323,8 +356,8 @@ function CheckoutScreen() {
         </TouchableOpacity>
         <Typo size={18} style={styles.sectionTitle}>Order Summary</Typo>
         <FreeShippingBar subtotal={subtotal} threshold={freeShippingThreshold} />
-        {cartItems.map(item => (
-          <View key={item.id} style={styles.summaryRow}>
+        {cartItems.map((item, index) => (
+          <View key={item.id || index} style={styles.summaryRow}>
             <Typo style={{ flex: 1 }} numberOfLines={1}>{item.products?.name || 'Product'} (x{item.quantity})</Typo>
             <Typo>₹{((item.products?.price || 0) * item.quantity).toFixed(2)}</Typo>
           </View>
@@ -344,6 +377,7 @@ function CheckoutScreen() {
     </ScreenComponent>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { paddingHorizontal: spacingX._20 },

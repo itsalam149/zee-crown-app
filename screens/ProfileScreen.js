@@ -7,10 +7,13 @@ import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, StyleSheet, TouchableOpacity, Alert, ScrollView } from 'react-native';
+// Changed: Imported Image
+import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { normalizeY } from 'utils/normalize';
 import { supabase } from '../lib/supabase';
+// Added: Import the icon from assets
+import AppIcon from '../assets/icon.png'; // This is the icon for the top-left
 
 function ProfileScreen(props) {
   const [key, setKey] = useState(0);
@@ -47,6 +50,7 @@ function ProfileScreen(props) {
     }
   };
 
+  // Reinstated: getInitials function for the profile avatar
   const getInitials = (name) => {
     if (!name) return '';
     const names = name.split(' ');
@@ -86,10 +90,17 @@ function ProfileScreen(props) {
 
   return (
     <ScreenComponent style={styles.container}>
+      {/* New: Header section for the top-left icon */}
+      <View style={styles.headerContainer}>
+        <Image source={AppIcon} style={styles.headerIcon} />
+      </View>
+
       <ScrollView contentContainerStyle={{ paddingBottom: spacingY._30 }}>
-        <View style={{ height: 24 }} />
+        {/* The 24 height view is no longer necessary as the headerContainer adds spacing */}
+        {/* <View style={{ height: 24 }} /> */}
 
         <View style={styles.topRow}>
+          {/* Reinstated: Profile avatar with initials */}
           <View style={styles.avatarContainer}>
             <Typo size={40} style={styles.avatarText}>
               {getInitials(profile?.full_name)}
@@ -129,7 +140,6 @@ function ProfileScreen(props) {
               index={2}
               onPress={() => navigation.navigate('MyAddresses')}
             />
-            {/* Invite a friend removed */}
           </View>
 
           <View style={[styles.bottomContainer, { marginBottom: '30%' }]}>
@@ -159,12 +169,25 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacingX._20,
   },
+  // Added: Styles for the new header and icon
+  headerContainer: {
+    paddingTop: spacingY._15, // Adjust top padding as needed
+    paddingBottom: spacingY._10, // Adjust bottom padding as needed
+    alignItems: 'flex-start', // Align content to the left
+  },
+  headerIcon: {
+    width: 45, // Adjust size as needed
+    height: 45, // Adjust size as needed
+    borderRadius: 12, // Optional: for rounded corners
+    resizeMode: 'contain', // Or 'cover' depending on your icon's aspect ratio
+  },
   topRow: {
     marginBottom: normalizeY(25),
-    alignItems: 'center',
+    alignItems: 'center', // Keep this centered for the avatar and text below the header
     gap: spacingX._10,
-    marginTop: '2%',
+    marginTop: '2%', // Adjust as needed
   },
+  // Reinstated: avatarContainer styles
   avatarContainer: {
     height: normalizeY(110),
     width: normalizeY(110),
@@ -180,6 +203,7 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
+  // Reinstated: avatarText style
   avatarText: {
     color: colors.white,
     fontWeight: 'bold',
