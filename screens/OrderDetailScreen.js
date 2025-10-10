@@ -104,20 +104,18 @@ function OrderDetailScreen() {
             }
 
             let fetchedAddress = null;
-            // ✅ Directly fetch the user's default address using user_id, just like in the first code example
-            if (orderData.user_id) {
-                const { data: userDefaultAddress, error: addressError } = await supabase
+            // ✅ Fetch the address using the address_id from the order
+            if (orderData.shipping_address) {
+                const { data: orderAddress, error: addressError } = await supabase
                     .from('addresses')
                     .select('*')
-                    .eq('user_id', orderData.user_id)
-                    .order('is_default', { ascending: false }) // Prefer the default address
-                    .limit(1)
-                    .single(); // Fetch just one record
+                    .eq('id', orderData.shipping_address)
+                    .single();
 
                 if (addressError) {
-                    console.error("Error fetching user's default address:", addressError.message);
+                    console.error("Error fetching order address:", addressError.message);
                 }
-                fetchedAddress = userDefaultAddress;
+                fetchedAddress = orderAddress;
             }
 
             setOrder(orderData);
@@ -143,7 +141,7 @@ function OrderDetailScreen() {
     }
 
     const getFormattedAddress = () => {
-        if (!address) return order.shipping_address || 'Address not available';
+        if (!address) return 'Address not available';
         const parts = [
             address.house_no,
             address.street_address,

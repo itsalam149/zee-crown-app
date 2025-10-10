@@ -154,11 +154,6 @@ function CheckoutScreen() {
       return;
     }
 
-    // Log to verify correct address is selected
-    console.log('Selected Address ID:', selectedAddress);
-    const selectedAddressData = addresses.find(addr => addr.id === selectedAddress);
-    console.log('Selected Address Data:', selectedAddressData);
-
     if (selectedPaymentMethod === 'ONLINE') {
       await handleOnlinePayment();
     } else {
@@ -209,13 +204,11 @@ function CheckoutScreen() {
           await createOrderInSupabase('Paid');
         })
         .catch((error) => {
-          console.error("Razorpay Error:", JSON.stringify(error, null, 2));
           if (error.code !== 2) {
             Toast.show({ type: 'error', text1: 'Payment Failed', text2: error.description || 'An unknown error occurred.' });
           }
         });
     } catch (error) {
-      console.error("Payment initiation failed:", error);
       Toast.show({ type: 'error', text1: 'Error', text2: 'Could not initiate payment. Check logs for details.' });
     } finally {
       setIsProcessingOrder(false);
@@ -231,22 +224,17 @@ function CheckoutScreen() {
     try {
       const { data: { session } } = await supabase.auth.getSession();
 
-      // Log the address ID being sent
-      console.log('Creating order with address_id:', selectedAddress);
-
       const { data, error } = await supabase.functions.invoke('create-order', {
         body: {
-          address_id: selectedAddress,  // This is the actual selected address ID
+          address_id: selectedAddress,
           payment_method: paymentMethod
         },
         headers: { Authorization: `Bearer ${session.access_token}` },
       });
 
       if (error) {
-        console.error('Order creation error:', error);
         Toast.show({ type: 'error', text1: 'Order Error', text2: error.message });
       } else {
-        console.log('Order created successfully:', data);
         Toast.show({
           type: 'success',
           text1: 'Order Placed!',
@@ -255,7 +243,6 @@ function CheckoutScreen() {
         navigation.navigate('Home');
       }
     } catch (err) {
-      console.error('Exception during order creation:', err);
       Toast.show({ type: 'error', text1: 'Error', text2: 'Failed to create order.' });
     } finally {
       setIsProcessingOrder(false);
@@ -266,7 +253,6 @@ function CheckoutScreen() {
     <TouchableOpacity
       style={[styles.addressCard, selectedAddress === item.id && styles.selectedAddressCard]}
       onPress={() => {
-        console.log('Address selected:', item.id); // Debug log
         setSelectedAddress(item.id);
       }}
     >
@@ -280,7 +266,7 @@ function CheckoutScreen() {
       <TouchableOpacity
         style={styles.editButton}
         onPress={(e) => {
-          e.stopPropagation(); // Prevent triggering address selection
+          e.stopPropagation();
           navigation.navigate('EditAddress', { address: item });
         }}
       >
@@ -305,7 +291,7 @@ function CheckoutScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={{ paddingVertical: spacingY._10 }}
-              extraData={selectedAddress} // Re-render when selectedAddress changes
+              extraData={selectedAddress}
             />
             <TouchableOpacity style={styles.addAddressButton} onPress={() => setShowAddAddress(true)}>
               <Ionicons name="add-circle" size={22} color={colors.primary} />
