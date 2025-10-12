@@ -46,13 +46,13 @@ const categories = [
         image: require('../assets/33.png')
     },
     {
-        name: "perfumes",
-        phrase: "Signature Scents",
+        name: "Crown\nPerfumes",
+        phrase: "", // Phrase removed as requested
         description: "Captivate with every breath",
         colors: ['#FFC107', '#FFD54F'],
         darkColor: '#FFA000',
         icon: "💨",
-        image: require('../assets/4.webp')
+        image: require('../assets/44.png')
     }
 ];
 
@@ -101,7 +101,7 @@ export default function CategoryScreen() {
     }, []);
 
     const handleCategoryPress = (item) => {
-        setCategory(item.name);
+        setCategory(item.name.replace('\n', ' ')); // Join the name back for context if needed
     };
 
     const CategoryCard = ({ item, index }) => {
@@ -204,18 +204,19 @@ export default function CategoryScreen() {
                             <View style={styles.textSection}>
                                 <Text
                                     style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
+                                    numberOfLines={2} // Changed to allow 2 lines
                                 >
                                     {item.name}
                                 </Text>
-                                <Text
-                                    style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]}
-                                    numberOfLines={1}
-                                    ellipsizeMode="tail"
-                                >
-                                    {item.phrase}
-                                </Text>
+                                {!!item.phrase && ( // Conditionally render phrase
+                                    <Text
+                                        style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]}
+                                        numberOfLines={1}
+                                        ellipsizeMode="tail"
+                                    >
+                                        {item.phrase}
+                                    </Text>
+                                )}
                                 <View style={styles.arrowButton}>
                                     <Text style={styles.arrowText}>→</Text>
                                 </View>
@@ -543,4 +544,4 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         fontWeight: '500'
     }
-}); 
+});

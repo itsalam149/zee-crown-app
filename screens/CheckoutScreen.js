@@ -232,7 +232,7 @@ function CheckoutScreen() {
 
         const options = {
           description: 'Payment for your order',
-          image: 'https://your-logo.png',
+          image: 'https://drive.google.com/file/d/1q_wnJhaUg1zSFsXV4ImVbi_M-QEK5iiV/view?usp=sharing',
           currency: 'INR',
           key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
           amount: orderData.amount,
