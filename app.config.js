@@ -31,7 +31,9 @@ export default {
                 foregroundImage: './assets/adaptive-icon.png',
                 backgroundColor: '#ffffff',
             },
-            package: 'com.alam.zeecrown', // <-- ADD your Android package name here
+            package: 'com.alam.zeecrown',
+            // --- This line is added to link your Firebase config ---
+            googleServicesFile: './google-services.json',
         },
         newArchEnabled: true,
         extra: {

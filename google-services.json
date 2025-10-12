@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "225875055167",
+    "project_id": "zee-crown-app",
+    "storage_bucket": "zee-crown-app.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:225875055167:android:8706182e7e40ec49e59e8a",
+        "android_client_info": {
+          "package_name": "com.alam.zeecrown"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD0T4HYg0gVrTe649ZySsj_cmMrVrUA4ho"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
