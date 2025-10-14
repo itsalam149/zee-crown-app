@@ -22,8 +22,8 @@ const categories = [
         name: "medicine",
         phrase: "Health & Wellness",
         description: "Your trusted pharmacy partner",
-        colors: ['#4CAF50', '#81C784'],
-        darkColor: '#388E3C',
+        colors: ['#10B981', '#34D399', '#6EE7B7'],
+        darkColor: '#059669',
         icon: "💊",
         image: require('../assets/11.png')
     },
@@ -31,8 +31,8 @@ const categories = [
         name: "cosmetics",
         phrase: "Beauty & Care",
         description: "Enhance your natural glow",
-        colors: ['#2196F3', '#64B5F6'],
-        darkColor: '#1976D2',
+        colors: ['#3B82F6', '#60A5FA', '#93C5FD'],
+        darkColor: '#2563EB',
         icon: "💅",
         image: require('../assets/22.png')
     },
@@ -40,17 +40,17 @@ const categories = [
         name: "food",
         phrase: "Fresh & Delicious",
         description: "Taste the goodness of life",
-        colors: ['#F44336', '#E57373'],
-        darkColor: '#D32F2F',
+        colors: ['#EF4444', '#F87171', '#FCA5A5'],
+        darkColor: '#DC2626',
         icon: "🍔",
         image: require('../assets/33.png')
     },
     {
-        name: "Crown\nPerfumes",
-        phrase: "", // Phrase removed as requested
+        name: "Crown Perfumes",
+        phrase: "Luxury Fragrances",
         description: "Captivate with every breath",
-        colors: ['#FFC107', '#FFD54F'],
-        darkColor: '#FFA000',
+        colors: ['#F59E0B', '#FBBF24', '#FCD34D'],
+        darkColor: '#D97706',
         icon: "💨",
         image: require('../assets/44.png')
     }
@@ -61,6 +61,7 @@ export default function CategoryScreen() {
     const slideAnim = useRef(new Animated.Value(50)).current;
     const logoScale = useRef(new Animated.Value(0.8)).current;
     const logoRotate = useRef(new Animated.Value(0)).current;
+    const floatAnim = useRef(new Animated.Value(0)).current;
     const { setCategory } = useContext(AuthContext);
 
     useEffect(() => {
@@ -98,22 +99,39 @@ export default function CategoryScreen() {
                 }),
             ])
         ).start();
+
+        // Floating animation
+        Animated.loop(
+            Animated.sequence([
+                Animated.timing(floatAnim, {
+                    toValue: 1,
+                    duration: 2500,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(floatAnim, {
+                    toValue: 0,
+                    duration: 2500,
+                    useNativeDriver: true,
+                }),
+            ])
+        ).start();
     }, []);
 
     const handleCategoryPress = (item) => {
-        setCategory(item.name.replace('\n', ' ')); // Join the name back for context if needed
+        setCategory(item.name);
     };
 
     const CategoryCard = ({ item, index }) => {
         const cardAnim = useRef(new Animated.Value(0)).current;
         const pressAnim = useRef(new Animated.Value(1)).current;
         const shimmerAnim = useRef(new Animated.Value(0)).current;
+        const glowAnim = useRef(new Animated.Value(0)).current;
 
         useEffect(() => {
             Animated.timing(cardAnim, {
                 toValue: 1,
                 duration: 600,
-                delay: index * 100,
+                delay: index * 150,
                 useNativeDriver: true,
             }).start();
 
@@ -122,10 +140,26 @@ export default function CategoryScreen() {
                 Animated.sequence([
                     Animated.timing(shimmerAnim, {
                         toValue: 1,
-                        duration: 2000,
+                        duration: 2500,
                         useNativeDriver: true,
                     }),
                     Animated.timing(shimmerAnim, {
+                        toValue: 0,
+                        duration: 2500,
+                        useNativeDriver: true,
+                    }),
+                ])
+            ).start();
+
+            // Glow pulse effect
+            Animated.loop(
+                Animated.sequence([
+                    Animated.timing(glowAnim, {
+                        toValue: 1,
+                        duration: 2000,
+                        useNativeDriver: true,
+                    }),
+                    Animated.timing(glowAnim, {
                         toValue: 0,
                         duration: 2000,
                         useNativeDriver: true,
@@ -136,7 +170,7 @@ export default function CategoryScreen() {
 
         const handlePressIn = () => {
             Animated.spring(pressAnim, {
-                toValue: 0.95,
+                toValue: 0.96,
                 useNativeDriver: true,
                 tension: 100,
                 friction: 7
@@ -156,7 +190,12 @@ export default function CategoryScreen() {
 
         const shimmerTranslate = shimmerAnim.interpolate({
             inputRange: [0, 1],
-            outputRange: [-200, 200],
+            outputRange: [-300, 300],
+        });
+
+        const glowOpacity = glowAnim.interpolate({
+            inputRange: [0, 1],
+            outputRange: [0.3, 0.7],
         });
 
         return (
@@ -169,10 +208,12 @@ export default function CategoryScreen() {
                             {
                                 translateY: cardAnim.interpolate({
                                     inputRange: [0, 1],
-                                    outputRange: [30, 0]
+                                    outputRange: [50, 0]
                                 })
                             },
-                            { scale: pressAnim }
+                            {
+                                scale: Animated.multiply(cardAnim, pressAnim)
+                            }
                         ],
                     },
                 ]}
@@ -184,13 +225,40 @@ export default function CategoryScreen() {
                     onPressOut={handlePressOut}
                     activeOpacity={1}
                 >
+                    {/* Outer glow effect */}
+                    <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]}>
+                        <LinearGradient
+                            colors={[...item.colors, 'transparent']}
+                            style={StyleSheet.absoluteFill}
+                            start={{ x: 0.5, y: 0 }}
+                            end={{ x: 0.5, y: 1 }}
+                        />
+                    </Animated.View>
+
                     <LinearGradient
                         colors={item.colors}
                         style={[styles.gradient, isLargeCard ? styles.largeGradient : styles.smallGradient]}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                     >
-                        {/* Shimmer Effect */}
+                        {/* Enhanced background pattern overlay */}
+                        <View style={styles.patternOverlay}>
+                            <View style={styles.patternDot} />
+                            <View style={[styles.patternDot, { top: 30, left: 50, width: 50, height: 50 }]} />
+                            <View style={[styles.patternDot, { top: 60, left: 20, width: 30, height: 30 }]} />
+                            <View style={[styles.patternDot, { bottom: 20, right: 30, width: 45, height: 45 }]} />
+                            <View style={[styles.patternDot, { top: '40%', right: 10, width: 35, height: 35 }]} />
+                        </View>
+
+                        {/* Diagonal stripes pattern */}
+                        <View style={styles.stripesPattern}>
+                            <View style={styles.stripe} />
+                            <View style={[styles.stripe, { left: 60 }]} />
+                            <View style={[styles.stripe, { left: 120 }]} />
+                            <View style={[styles.stripe, { left: 180 }]} />
+                        </View>
+
+                        {/* Enhanced shimmer effect */}
                         <Animated.View
                             style={[
                                 styles.shimmer,
@@ -204,11 +272,11 @@ export default function CategoryScreen() {
                             <View style={styles.textSection}>
                                 <Text
                                     style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}
-                                    numberOfLines={2} // Changed to allow 2 lines
+                                    numberOfLines={2}
                                 >
                                     {item.name}
                                 </Text>
-                                {!!item.phrase && ( // Conditionally render phrase
+                                {!!item.phrase && (
                                     <Text
                                         style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]}
                                         numberOfLines={1}
@@ -222,16 +290,21 @@ export default function CategoryScreen() {
                                 </View>
                             </View>
                             <View style={styles.imageSection}>
-                                <Image
-                                    source={item.image}
-                                    style={[styles.productImage, isLargeCard && styles.largeProductImage]}
-                                    resizeMode="contain"
-                                />
+                                <View style={styles.imageGlow}>
+                                    <Image
+                                        source={item.image}
+                                        style={[styles.productImage, isLargeCard && styles.largeProductImage]}
+                                        resizeMode="contain"
+                                    />
+                                </View>
                             </View>
                         </View>
-                        <View style={[styles.taglineContainer, { backgroundColor: 'rgba(255, 255, 255, 0.25)' }]}>
+                        <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.15)']}
+                            style={styles.taglineContainer}
+                        >
                             <Text style={styles.taglineText}>{item.description}</Text>
-                        </View>
+                        </LinearGradient>
                     </LinearGradient>
                 </TouchableOpacity>
             </Animated.View>
@@ -243,6 +316,11 @@ export default function CategoryScreen() {
         outputRange: ['-5deg', '5deg'],
     });
 
+    const floatTranslate = floatAnim.interpolate({
+        inputRange: [0, 1],
+        outputRange: [0, -8],
+    });
+
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <View style={styles.container}>
@@ -252,7 +330,19 @@ export default function CategoryScreen() {
                     translucent={Platform.OS === 'android'}
                 />
 
-                <LinearGradient colors={['#6366F1', '#8B5CF6']} style={styles.header}>
+                <LinearGradient
+                    colors={['#6366F1', '#7C3AED', '#8B5CF6']}
+                    style={styles.header}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                >
+                    {/* Decorative circles */}
+                    <View style={styles.decorativeCircle1} />
+                    <View style={styles.decorativeCircle2} />
+                    <View style={styles.decorativeCircle3} />
+                    <View style={styles.decorativeCircle4} />
+                    <View style={styles.decorativeCircle5} />
+
                     <Animated.View style={[
                         styles.headerContent,
                         {
@@ -260,30 +350,35 @@ export default function CategoryScreen() {
                             transform: [{ translateY: slideAnim }]
                         }
                     ]}>
-                        {/* App Icon/Logo */}
-                        <Animated.View
-                            style={[
-                                styles.logoContainer,
-                                {
-                                    transform: [
-                                        { scale: logoScale },
-                                        { rotate: logoRotateInterpolate }
-                                    ],
-                                },
-                            ]}
-                        >
-                            <View style={styles.logoWrapper}>
-                                <Image
-                                    source={require('../assets/icon.png')}
-                                    style={styles.logo}
-                                    resizeMode="contain"
-                                />
-                            </View>
-                        </Animated.View>
+                        <View style={styles.headerRow}>
+                            <Animated.View
+                                style={[
+                                    styles.logoContainer,
+                                    {
+                                        transform: [
+                                            { scale: logoScale },
+                                            { rotate: logoRotateInterpolate },
+                                            { translateY: floatTranslate }
+                                        ],
+                                    },
+                                ]}
+                            >
+                                <View style={styles.logoWrapper}>
+                                    <View style={styles.logoInnerGlow} />
+                                    <Image
+                                        source={require('../assets/icon.png')}
+                                        style={styles.logo}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            </Animated.View>
 
-                        <Text style={styles.welcomeText}>Welcome!</Text>
-                        <Text style={styles.title}>Choose Your Category</Text>
-                        <Text style={styles.subtitle}>Discover amazing products just for you</Text>
+                            <View style={styles.headerTextContainer}>
+                                <Text style={styles.welcomeText}>Welcome Back!</Text>
+                                <Text style={styles.title}>Choose Your Category</Text>
+                                <Text style={styles.subtitle}>Discover amazing products just for you</Text>
+                            </View>
+                        </View>
                     </Animated.View>
                 </LinearGradient>
 
@@ -325,7 +420,7 @@ export default function CategoryScreen() {
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
-        backgroundColor: '#6366F1', // Match header gradient start color
+        backgroundColor: '#6366F1',
     },
     container: {
         flex: 1,
@@ -333,136 +428,262 @@ const styles = StyleSheet.create({
     },
     header: {
         paddingTop: Platform.OS === 'android' ? 20 : 10,
-        paddingBottom: 30,
+        paddingBottom: 35,
         paddingHorizontal: 20,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30
+        borderBottomLeftRadius: 35,
+        borderBottomRightRadius: 35,
+        overflow: 'hidden',
+        position: 'relative'
     },
-    headerContent: {
-        alignItems: 'center'
+    decorativeCircle1: {
+        position: 'absolute',
+        width: 220,
+        height: 220,
+        borderRadius: 110,
+        backgroundColor: 'rgba(255,255,255,0.08)',
+        top: -60,
+        right: -60,
     },
-    logoContainer: {
-        marginBottom: 15,
+    decorativeCircle2: {
+        position: 'absolute',
+        width: 170,
+        height: 170,
+        borderRadius: 85,
+        backgroundColor: 'rgba(255,255,255,0.06)',
+        bottom: -40,
+        left: -50,
     },
-    logoWrapper: {
+    decorativeCircle3: {
+        position: 'absolute',
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        top: 40,
+        left: 20,
+    },
+    decorativeCircle4: {
+        position: 'absolute',
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        backgroundColor: 'rgba(255,255,255,0.07)',
+        top: 70,
+        right: 80,
+    },
+    decorativeCircle5: {
+        position: 'absolute',
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: 'rgba(255,255,255,0.04)',
+        bottom: 50,
+        right: 120,
+    },
+    headerContent: {
+        zIndex: 10
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        width: '100%',
+        paddingHorizontal: 10,
+    },
+    headerTextContainer: {
+        flex: 1,
+        marginLeft: 16,
+        alignItems: 'flex-start',
+    },
+    logoContainer: {
+        marginBottom: 0,
+    },
+    logoWrapper: {
+        width: 70,
+        height: 70,
+        borderRadius: 35,
+        backgroundColor: '#FFFFFF',
         justifyContent: 'center',
         alignItems: 'center',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 10,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.35,
+        shadowRadius: 16,
+        elevation: 12,
         borderWidth: 4,
-        borderColor: 'rgba(255, 255, 255, 0.3)',
+        borderColor: 'rgba(255, 255, 255, 0.4)',
+        position: 'relative',
+        overflow: 'hidden'
+    },
+    logoInnerGlow: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+        borderRadius: 35,
     },
     logo: {
-        width: 60,
-        height: 60,
+        width: 50,
+        height: 50,
+        zIndex: 2
     },
     welcomeText: {
-        fontSize: 16,
-        color: 'rgba(255, 255, 255, 0.8)',
-        marginBottom: 5,
-        fontWeight: '500'
+        fontSize: 14,
+        color: '#FFFFFF',
+        marginBottom: 4,
+        fontWeight: '600',
+        letterSpacing: 0.5,
+        textAlign: 'left',
     },
     title: {
-        fontSize: 28,
-        fontWeight: 'bold',
+        fontSize: 24,
+        fontWeight: '800',
         color: '#FFFFFF',
-        marginBottom: 8,
-        textAlign: 'center',
-        letterSpacing: 0.5
+        marginBottom: 6,
+        textAlign: 'left',
+        letterSpacing: 0.5,
+        textShadowColor: 'rgba(0, 0, 0, 0.15)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 4
     },
     subtitle: {
-        fontSize: 14,
-        color: 'rgba(255, 255, 255, 0.7)',
-        textAlign: 'center',
-        fontWeight: '500'
+        fontSize: 13,
+        color: 'rgba(255, 255, 255, 0.85)',
+        textAlign: 'left',
+        fontWeight: '500',
+        letterSpacing: 0.3
     },
     scrollContainer: {
         flex: 1
     },
     scrollContent: {
-        padding: 16,
-        paddingTop: 20
+        padding: 18,
+        paddingTop: 24,
+        paddingBottom: 30
     },
     largeCardContainer: {
-        marginBottom: 16,
+        marginBottom: 18,
         width: '100%'
     },
     smallCardContainer: {
-        width: (width - 48) / 2,
-        marginBottom: 16
+        width: (width - 54) / 2,
+        marginBottom: 18
     },
     smallCardsRow: {
         flexDirection: 'row',
         justifyContent: 'space-between'
     },
     card: {
-        borderRadius: 20,
+        borderRadius: 24,
         overflow: 'hidden',
-        elevation: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.15,
-        shadowRadius: 12
+        position: 'relative'
+    },
+    cardGlow: {
+        position: 'absolute',
+        top: -4,
+        left: -4,
+        right: -4,
+        bottom: -4,
+        borderRadius: 28,
+        zIndex: -1,
     },
     gradient: {
         position: 'relative',
-        overflow: 'hidden'
+        overflow: 'hidden',
+        borderRadius: 24,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.2,
+        shadowRadius: 15
     },
     largeGradient: {
-        minHeight: 180
+        minHeight: 160
     },
     smallGradient: {
         minHeight: 200
+    },
+    patternOverlay: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        opacity: 0.12
+    },
+    patternDot: {
+        position: 'absolute',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        backgroundColor: 'rgba(255,255,255,0.3)',
+        top: 10,
+        left: 10
+    },
+    stripesPattern: {
+        position: 'absolute',
+        width: '100%',
+        height: '100%',
+        opacity: 0.08,
+        overflow: 'hidden'
+    },
+    stripe: {
+        position: 'absolute',
+        width: 3,
+        height: '200%',
+        backgroundColor: 'rgba(255,255,255,0.4)',
+        transform: [{ rotate: '25deg' }],
+        left: 0,
+        top: -50
     },
     shimmer: {
         position: 'absolute',
         top: 0,
         left: 0,
-        width: 100,
+        width: 150,
         height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        backgroundColor: 'rgba(255, 255, 255, 0.25)',
         transform: [{ skewX: '-20deg' }],
     },
     cardContent: {
         flexDirection: 'row',
         padding: 20,
-        paddingBottom: 10,
+        paddingBottom: 12,
         justifyContent: 'space-between',
         alignItems: 'flex-start'
     },
     textSection: {
-        flex: 1,
+        flex: 1.2,
         paddingRight: 10
     },
     categoryName: {
         fontSize: 18,
-        fontWeight: '700',
+        fontWeight: '800',
         color: '#FFFFFF',
-        marginBottom: 4,
+        marginBottom: 6,
         textTransform: 'capitalize',
-        flexShrink: 1,
         textAlign: 'left',
-        letterSpacing: 0.3
+        letterSpacing: 0.4,
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 5
     },
     largeCategoryName: {
-        fontSize: 28,
-        marginBottom: 8
+        fontSize: 26,
+        marginBottom: 10,
+        textShadowColor: 'rgba(0, 0, 0, 0.5)',
+        textShadowOffset: { width: 0, height: 2 },
+        textShadowRadius: 5
     },
     categoryPhrase: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#FFFFFF',
-        marginBottom: 8,
+        marginBottom: 10,
         fontWeight: '600',
         opacity: 0.95,
         flexShrink: 1,
-        textAlign: 'left'
+        textAlign: 'left',
+        letterSpacing: 0.3,
+        textShadowColor: 'rgba(0, 0, 0, 0.3)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3
     },
     largeCategoryPhrase: {
         fontSize: 16,
@@ -475,46 +696,52 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.95)',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 4,
+        marginTop: 6,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
-        elevation: 3
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+        elevation: 5,
+        alignSelf: 'flex-start'
     },
     arrowText: {
         fontSize: 20,
         fontWeight: '600',
-        color: '#1F2937'
+        color: '#1F2937',
     },
     imageSection: {
         justifyContent: 'center',
-        alignItems: 'center'
+        alignItems: 'center',
+        flex: 0.8
+    },
+    imageGlow: {
+        padding: 4,
+        borderRadius: 12,
     },
     productImage: {
-        width: 120,
-        height: 90
+        width: 95,
+        height: 72
     },
     largeProductImage: {
-        width: 140,
-        height: 110
+        width: 115,
+        height: 90
     },
     taglineContainer: {
-        paddingVertical: 10,
+        paddingVertical: 12,
         paddingHorizontal: 20,
         marginTop: 'auto'
     },
     taglineText: {
-        fontSize: 12,
+        fontSize: 13,
         color: '#FFFFFF',
         fontWeight: '600',
-        textAlign: 'left'
+        textAlign: 'left',
+        letterSpacing: 0.3
     },
-
-    // Footer Section
+    // --- UPDATED FOOTER STYLES ---
     footerSection: {
-        marginTop: 10,
-        marginBottom: 30,
+        marginTop: 20,
+        marginBottom: 20,
         alignItems: 'center',
     },
     footerGradient: {

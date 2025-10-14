@@ -13,7 +13,12 @@ export default {
         experiments: {
             tsconfigPaths: true,
         },
-        plugins: ['expo-asset', 'expo-font'],
+        // --- MODIFICATION: The correct plugin is now here ---
+        plugins: [
+            'expo-asset',
+            'expo-font',
+            '@react-native-firebase/app'
+        ],
         orientation: 'portrait',
         icon: './assets/icon.png',
         userInterfaceStyle: 'light',
@@ -32,8 +37,8 @@ export default {
                 backgroundColor: '#ffffff',
             },
             package: 'com.alam.zeecrown',
-            // --- This line is added to link your Firebase config ---
-            googleServicesFile: './google-services.json',
+            // --- This key is required by the @react-native-firebase/app plugin ---
+            googleServicesFile: './google-services.json'
         },
         newArchEnabled: true,
         extra: {
