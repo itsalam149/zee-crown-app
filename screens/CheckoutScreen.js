@@ -234,7 +234,7 @@ function CheckoutScreen() {
           description: 'Payment for your order',
           image: 'https://drive.google.com/file/d/1q_wnJhaUg1zSFsXV4ImVbi_M-QEK5iiV/view?usp=sharing',
           currency: 'INR',
-          key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID,
+          key: process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID, 
           amount: orderData.amount,
           name: 'Zee Crown',
           order_id: orderData.id,

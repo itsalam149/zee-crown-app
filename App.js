@@ -1,6 +1,6 @@
 // App.js
 import 'react-native-gesture-handler';
-import React, { useState, useEffect } from 'react'; // Fixed the import statement
+import React, { useState, useEffect } from 'react';
 import { Platform, StatusBar } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -31,14 +31,20 @@ Notifications.setNotificationHandler({
 async function registerForPushNotificationsAsync() {
   let token;
   if (Platform.OS === 'android') {
-    await Notifications.setNotificationChannelAsync('default', {
-      name: 'default',
-      importance: Notifications.AndroidImportance.MAX,
-      vibrationPattern: [0, 250, 250, 250],
-      lightColor: '#FF231F7C',
-    });
+    // Ensure the channel exists before setting it.
+    try {
+      await Notifications.setNotificationChannelAsync('default', {
+        name: 'default',
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        lightColor: '#FF231F7C',
+      });
+    } catch (e) {
+      console.log("Could not set notification channel:", e);
+    }
   }
 
+  // --- Permission Handling ---
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
   if (existingStatus !== 'granted') {
@@ -46,9 +52,13 @@ async function registerForPushNotificationsAsync() {
     finalStatus = status;
   }
   if (finalStatus !== 'granted') {
-    console.log('Failed to get push token for push notification!');
-    return;
+    console.log('Permission not granted for push notifications!');
+    // Optionally, show an alert to the user here
+    // Alert.alert('Permission Required', 'Push notifications are disabled. Please enable them in settings.');
+    return; // Exit if permission is denied
   }
+  // --- End Permission Handling ---
+
 
   // Get the project ID from your app.config.js
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
@@ -59,8 +69,9 @@ async function registerForPushNotificationsAsync() {
 
   try {
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
+    console.log("Expo Push Token:", token); // Log the token for debugging
   } catch (e) {
-    console.error("Couldn't get push token", e);
+    console.error("Couldn't get push token:", e);
   }
 
   return token;
@@ -71,21 +82,28 @@ export default function App() {
   const [category, setCategory] = useState(null);
 
   useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+      if (!seeion?.user) {
+        setCategory(null);
+      }
+    });
+
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const sessionUser = session?.user ?? null;
         setUser(sessionUser);
 
-        if (sessionUser) {
+        if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED') {
           setCategory(null);
+        }
 
-          // --- Get the push token and save it to the user's profile ---
+        if (_event === 'SIGNED_IN' && sessionUser) {
           const token = await registerForPushNotificationsAsync();
           if (token && sessionUser.id) {
             const { error } = await supabase
               .from('profiles')
-              .update({ expo_push_token: token })
-              .eq('id', sessionUser.id);
+              .upsert({ id: sessionUser.id, expo_push_token: token }, { onConflict: 'id' });
             if (error) {
               console.error("Error saving push token:", error);
             }
@@ -94,48 +112,64 @@ export default function App() {
       }
     );
 
+    // Cleanup listener on unmount
     return () => {
       authListener.subscription.unsubscribe();
     };
   }, []);
 
-  // --- useEffect for Notification Listeners ---
+  // --- Notification Listeners (FIXED) ---
   useEffect(() => {
-    // This listener is fired whenever a notification is received while the app is foregrounded
-    const receivedListener = Notifications.addNotificationReceivedListener(notification => {
+    // Listener for received notifications (app in foreground)
+    const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification Received: ', notification.request.content.title);
-      // You can show a custom in-app toast or banner here
+      // Optional: Show an in-app message using Toast or a custom component
+      Toast.show({
+        type: 'info',
+        text1: notification.request.content.title || 'New Notification',
+        text2: notification.request.content.body || '',
+        visibilityTime: 4000
+      })
     });
 
-    // This listener is fired whenever a user taps on or interacts with a notification
+    // Listener for user interaction with notifications (tapping)
     const responseListener = Notifications.addNotificationResponseReceivedListener(response => {
       console.log('Notification Tapped!', response);
-      // You can add logic here to navigate to a specific screen
+      // Add logic here to navigate based on notification data if needed
+      // e.g., const screen = response.notification.request.content.data?.screen;
+      // if (screen) { navigationRef.navigate(screen); }
     });
 
+    // Cleanup function using .remove() on the subscription objects
     return () => {
-      Notifications.removeNotificationSubscription(receivedListener);
-      Notifications.removeNotificationSubscription(responseListener);
+      notificationListener.remove(); // <-- Correct way to remove listener
+      responseListener.remove();    // <-- Correct way to remove listener
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs once
 
   return (
+    // AuthContext provides user, setUser, category, setCategory to the app
     <AuthContext.Provider value={{ user, setUser, category, setCategory }}>
       <SafeAreaProvider>
         <StatusBar
-          barStyle="dark-content"
+          barStyle="dark-content" // Or "light-content" depending on your header
           backgroundColor="transparent"
           translucent={true}
         />
         <GestureHandlerRootView style={{ flex: 1 }}>
+          {/* NavigationContainer wraps the navigators */}
           <NavigationContainer>
+            {/* Conditional rendering based on authentication state */}
             {user ? (
+              // If user is logged in, show Category or App navigator
               category ? <AppNavigator /> : <CategoryNavigator />
             ) : (
+              // If no user, show the Authentication flow navigator
               <AuthNavigator />
             )}
           </NavigationContainer>
         </GestureHandlerRootView>
+        {/* Toast component needs to be rendered at the top level */}
         <Toast />
       </SafeAreaProvider>
     </AuthContext.Provider>
