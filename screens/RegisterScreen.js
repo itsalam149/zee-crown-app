@@ -7,19 +7,19 @@ import {
   Platform,
   TextInput,
   TouchableOpacity,
-  ScrollView, // <-- Import ScrollView
-  ActivityIndicator, // Added for loading
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from 'config/colors';
+import colors from '../config/colors'; // Adjusted path
 import { useState } from 'react';
-import { radius, spacingX, spacingY } from 'config/spacing';
-import Typo from 'components/Typo';
-import { normalizeY } from 'utils/normalize';
+import { radius, spacingX, spacingY } from '../config/spacing'; // Adjusted path
+import Typo from '../components/Typo'; // Adjusted path
+import { normalizeY } from '../utils/normalize'; // Adjusted path
 import { Octicons } from '@expo/vector-icons';
-import AppButton from 'components/AppButton';
+import AppButton from '../components/AppButton'; // Adjusted path
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase'; // Adjusted path
 import Toast from 'react-native-toast-message';
 // Import the OTP type enum from VerifyOtpScreen
 import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
@@ -77,7 +77,6 @@ function RegisterScreen(props) {
           full_name: name,
           phone_number: phone,
         },
-        // No emailRedirectTo needed here when Confirm Email is OFF
       },
     });
 
@@ -88,7 +87,7 @@ function RegisterScreen(props) {
     } else if (data.user && !data.session) {
       // User created, OTP sent (because "Confirm email" is OFF in Supabase settings)
       Toast.show({
-        type: 'info', // Use info, as action is still needed
+        type: 'info',
         text1: 'Check Your Email',
         text2: 'An OTP has been sent. Please enter it on the next screen.',
         visibilityTime: 5000,
@@ -96,20 +95,19 @@ function RegisterScreen(props) {
       const registeredEmail = email; // Capture email before clearing
       clearForm();
       // --- NAVIGATE TO VerifyOtpScreen ---
-      // Use setTimeout to allow state updates to settle before navigating
+      // Use setTimeout to allow state updates/UI changes to settle before navigating
       setTimeout(() => {
-        navigation.navigate('VerifyOtp', { // Navigate to the new screen
+        navigation.navigate('VerifyOtp', { // Navigate to the verification screen
           email: registeredEmail,
-          otpType: OtpType.SIGNUP, // Specify the type
+          otpType: OtpType.SIGNUP, // Specify the type for verification screen logic
         });
-      }, 0);
+      }, 0); // Delay of 0ms pushes execution after current stack
     } else if (data.user && data.session) {
-      // This case might happen if auto-confirm is somehow enabled or during testing.
-      // Treat as successful, but maybe log a warning.
+      // This case might happen if auto-confirm is somehow enabled.
       console.warn("User signed up and received a session immediately - check Supabase email confirmation settings.");
       Toast.show({ type: 'success', text1: 'Registration Successful!', text2: 'You are now signed in.' });
-      clearForm(); // Still clear form
-      // Let the Auth listener in App.js handle navigation
+      clearForm();
+      // Let the Auth listener in App.js handle navigation into the main app
     }
     else {
       // Handle unexpected cases
@@ -212,11 +210,13 @@ const styles = StyleSheet.create({
     borderColor: '#0000001A',
   },
   input: {
-    paddingVertical: spacingY._15, paddingHorizontal: spacingX._20, // Slightly reduced padding
+    paddingVertical: spacingY._10, // <-- FIX: Reduced vertical padding
+    paddingHorizontal: spacingX._20,
     fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55, // Fixed height
   },
   passwordInput: {
-    paddingVertical: spacingY._15, paddingHorizontal: spacingX._20, // Slightly reduced padding
+    paddingVertical: spacingY._10, // <-- FIX: Reduced vertical padding
+    paddingHorizontal: spacingX._20,
     fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55, // Fixed height
   },
   eyeIcon: {

@@ -9,11 +9,11 @@ import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 
-import { supabase } from './lib/supabase';
+import { supabase } from './lib/supabase'; // Ensure this path is correct
 import AppNavigator from './navigation/AppNavigator';
 import AuthNavigator from './navigation/AuthNavigator';
 import CategoryNavigator from './navigation/CategoryNavigator';
-import AuthContext from './auth/AuthContext';
+import AuthContext from './auth/AuthContext'; // Ensure this path is correct
 
 // --- Notification Handler ---
 Notifications.setNotificationHandler({
@@ -24,10 +24,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// --- Register for Push Notifications ---
+// --- Function to Register for Push Notifications ---
 async function registerForPushNotificationsAsync() {
   let token;
-
   if (Platform.OS === 'android') {
     try {
       await Notifications.setNotificationChannelAsync('default', {
@@ -43,12 +42,10 @@ async function registerForPushNotificationsAsync() {
 
   const { status: existingStatus } = await Notifications.getPermissionsAsync();
   let finalStatus = existingStatus;
-
   if (existingStatus !== 'granted') {
     const { status } = await Notifications.requestPermissionsAsync();
     finalStatus = status;
   }
-
   if (finalStatus !== 'granted') {
     console.log('Permission not granted for push notifications!');
     return;
@@ -70,30 +67,41 @@ async function registerForPushNotificationsAsync() {
   return token;
 }
 
+// --- Main App Component ---
 export default function App() {
-  const [user, setUser] = useState(null);
-  const [category, setCategory] = useState(null);
+  // *** FIX: Store the whole session object, not just the user ***
+  const [session, setSession] = useState(null);
+  const [category, setCategory] = useState(null); // Keep category state
 
-  // --- Authentication Listener ---
+  // --- Authentication State Listener ---
   useEffect(() => {
-    // initial session check
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (!session?.user) {
+    // Check initial session state when the app first loads
+    supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
+      // *** FIX: Set the session state ***
+      setSession(initialSession);
+      // Ensure category is null if no session
+      if (!initialSession) {
         setCategory(null);
       }
+    }).catch(error => {
+      console.error("Error getting initial session:", error);
+      setSession(null); // Ensure session is null on error
+      setCategory(null);
     });
 
-    // subscribe to auth state changes
+    // Subscribe to future authentication state changes
     const { data } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
-        const sessionUser = session?.user ?? null;
-        setUser(sessionUser);
+      async (_event, currentSession) => {
+        // *** FIX: Set the session state ***
+        setSession(currentSession);
+        const sessionUser = currentSession?.user ?? null; // Get user from session
 
-        if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED') {
+        // Reset category on significant auth events
+        if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED' || !currentSession) {
           setCategory(null);
         }
 
+        // Register/Update push token only when fully signed in
         if (_event === 'SIGNED_IN' && sessionUser) {
           const token = await registerForPushNotificationsAsync();
           if (token && sessionUser.id) {
@@ -108,21 +116,19 @@ export default function App() {
       }
     );
 
-    // `data` may be undefined in some environments; be defensive
     const subscription = data?.subscription;
 
+    // Cleanup function
     return () => {
-      try {
-        if (subscription && typeof subscription.unsubscribe === 'function') {
-          subscription.unsubscribe();
-        }
-      } catch (e) {
-        console.warn('Failed to unsubscribe auth listener:', e);
+      if (subscription && typeof subscription.unsubscribe === 'function') {
+        subscription.unsubscribe();
+      } else {
+        console.warn('Could not unsubscribe auth listener.');
       }
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs only once on mount
 
-  // --- Notification Listeners ---
+  // --- Notification Listeners (No change needed here) ---
   useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       console.log('Notification Received:', notification.request.content.title);
@@ -144,13 +150,27 @@ export default function App() {
     };
   }, []);
 
+  // --- Render the App ---
+  // *** FIX: Derive user from session for context ***
+  const contextUser = session?.user ?? null;
+
   return (
-    <AuthContext.Provider value={{ user, setUser, category, setCategory }}>
+    // Pass derived user to context
+    <AuthContext.Provider value={{ user: contextUser, setUser: () => { }, category, setCategory }}>
       <SafeAreaProvider>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NavigationContainer>
-            {user ? (category ? <AppNavigator /> : <CategoryNavigator />) : <AuthNavigator />}
+            {/* *** FIX: Base navigation on session existence, not user *** */}
+            {session ? ( // If session exists (user is fully authenticated)...
+              category ? ( // ...and a category is selected...
+                <AppNavigator /> // ...show the main app navigator.
+              ) : ( // ...but no category is selected...
+                <CategoryNavigator /> // ...show the category selection navigator.
+              )
+            ) : ( // If no session (user is logged out or pending verification)...
+              <AuthNavigator /> // ...show the authentication navigator.
+            )}
           </NavigationContainer>
         </GestureHandlerRootView>
         <Toast />

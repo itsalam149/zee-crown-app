@@ -9,21 +9,22 @@ import {
     Dimensions,
     Platform,
     ActivityIndicator,
+    ScrollView, // Added
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from 'config/colors';
-import { radius, spacingX, spacingY } from 'config/spacing';
-import Typo from 'components/Typo';
-import AppButton from 'components/AppButton';
+import colors from '../config/colors'; // Adjusted path
+import { radius, spacingX, spacingY } from '../config/spacing'; // Adjusted path
+import Typo from '../components/Typo'; // Adjusted path
+import AppButton from '../components/AppButton'; // Adjusted path
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
-import { normalizeY } from 'utils/normalize';
+import { supabase } from '../lib/supabase'; // Adjusted path
+import { normalizeY } from '../utils/normalize'; // Adjusted path
 import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
-// Define OTP types
+// Define OTP types (Export for use in other screens)
 export const OtpType = {
     SIGNUP: 'signup',
     PASSWORD_RESET: 'email', // Supabase uses 'email' type for password reset OTPs sent via email
@@ -32,7 +33,19 @@ export const OtpType = {
 function VerifyOtpScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { email, otpType, nextScreen, nextScreenParams } = route.params; // Get email and type from navigation
+    // Get parameters passed during navigation
+    const { email, otpType, nextScreen, nextScreenParams } = route.params || {};
+
+    // Ensure required parameters exist
+    if (!email || !otpType) {
+        console.error("VerifyOtpScreen requires 'email' and 'otpType' parameters.");
+        // Optionally navigate back or show an error message
+        useEffect(() => {
+            Toast.show({ type: 'error', text1: 'Error', text2: 'Missing required information.' });
+            if (navigation.canGoBack()) navigation.goBack();
+        }, []);
+        return null; // Don't render if params are missing
+    }
 
     const [otp, setOtp] = useState('');
     const [loading, setLoading] = useState(false);
@@ -44,7 +57,7 @@ function VerifyOtpScreen() {
 
     // --- Verify OTP ---
     const handleVerifyOtp = async () => {
-        if (!email || !otp || otp.length !== 6) {
+        if (!otp || otp.length !== 6) {
             Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter the 6-digit OTP.' });
             return;
         }
@@ -63,14 +76,15 @@ function VerifyOtpScreen() {
             // For password reset: Navigate to the next step (Set New Password).
             if (!isSignupOtp && nextScreen) {
                 Toast.show({ type: 'success', text1: 'OTP Verified', text2: 'You can now set a new password.' });
-                // Navigate to the screen specified by ForgotPasswordScreen
+                // Navigate to the screen specified (e.g., back to ForgotPassword with params)
                 navigation.navigate(nextScreen, { email: email, ...(nextScreenParams || {}) });
             } else if (isSignupOtp) {
                 Toast.show({ type: 'success', text1: 'Email Verified!', text2: 'Sign in successful.' });
-                // App.js listener will handle navigating into the app
+                // App.js listener will handle navigating into the main app
             }
         } else {
-            Toast.show({ type: 'error', text1: 'Verification Issue', text2: 'Could not verify OTP. Please try again.' });
+            // Handle case where verification succeeds but doesn't return a session
+            Toast.show({ type: 'error', text1: 'Verification Issue', text2: 'Could not verify OTP. Please try again or resend.' });
         }
     };
 
@@ -81,10 +95,10 @@ function VerifyOtpScreen() {
 
         let error = null;
         if (isSignupOtp) {
-            // Resend confirmation OTP
+            // Resend confirmation/signup OTP
             ({ error } = await supabase.auth.resend({ type: 'signup', email: email }));
         } else {
-            // Resend password reset OTP
+            // Resend password reset OTP using signInWithOtp
             ({ error } = await supabase.auth.signInWithOtp({
                 email: email,
                 options: { shouldCreateUser: false } // Important for password reset
@@ -108,91 +122,108 @@ function VerifyOtpScreen() {
                 <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
                 <View style={styles.c2} />
             </View>
-            <BlurView intensity={100} tint="light" style={styles.blurContainer}>
-                <ScrollView contentContainerStyle={{ flexGrow: 1, justifyContent: 'center' }} keyboardShouldPersistTaps="handled">
-                    <Typo size={26} style={styles.text}>{title}</Typo>
-                    <Typo size={16} style={styles.body}>{description}</Typo>
+            <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+                <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+                    <View style={styles.contentView}> {/* Added wrapper view */}
+                        <Typo size={26} style={styles.text}>{title}</Typo>
+                        <Typo size={16} style={styles.body}>{description}</Typo>
 
-                    <View style={styles.inputView}>
-                        <TextInput
-                            value={otp}
-                            onChangeText={setOtp}
-                            placeholder="Enter 6-digit OTP"
-                            placeholderTextColor="grey"
-                            style={styles.input}
-                            autoCapitalize="none"
-                            keyboardType="number-pad"
-                            maxLength={6}
+                        <View style={styles.inputView}>
+                            <TextInput
+                                value={otp}
+                                onChangeText={setOtp}
+                                placeholder="Enter 6-digit OTP"
+                                placeholderTextColor="grey"
+                                style={styles.input}
+                                autoCapitalize="none"
+                                keyboardType="number-pad"
+                                maxLength={6}
+                                testID="otpInput" // Added for testing
+                            />
+                        </View>
+                        <AppButton
+                            onPress={handleVerifyOtp}
+                            label={loading ? 'Verifying...' : 'Verify Code'}
+                            loading={loading}
+                            disabled={loading || resendLoading}
+                            style={styles.actionButton}
                         />
-                    </View>
-                    <AppButton
-                        onPress={handleVerifyOtp}
-                        label={loading ? 'Verifying...' : 'Verify Code'}
-                        loading={loading} // Pass loading state if AppButton supports it
-                        disabled={loading || resendLoading}
-                        style={styles.actionButton}
-                    />
-                    <TouchableOpacity style={styles.linkButton} onPress={handleResendOtp} disabled={loading || resendLoading}>
-                        <Typo style={{ color: colors.gray }}>{resendLoading ? 'Resending...' : 'Resend OTP'}</Typo>
-                    </TouchableOpacity>
+                        <TouchableOpacity style={styles.linkButton} onPress={handleResendOtp} disabled={loading || resendLoading}>
+                            <Typo style={{ color: colors.gray }}>{resendLoading ? 'Resending...' : 'Resend OTP'}</Typo>
+                        </TouchableOpacity>
 
-                    {/* Allow navigating back for password reset */}
-                    {!isSignupOtp && (
-                        <TouchableOpacity style={styles.linkButton} onPress={() => navigation.goBack()}>
-                            <Typo style={{ color: colors.blue }}>Enter different email?</Typo>
+                        {/* Button to go back to email entry for password reset */}
+                        {!isSignupOtp && (
+                            <TouchableOpacity style={styles.linkButton} onPress={() => navigation.canGoBack() && navigation.goBack()}>
+                                <Typo style={{ color: colors.blue }}>Enter different email?</Typo>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+
+                    {/* Back to Sign In button */}
+                    {!loading && !resendLoading && (
+                        <TouchableOpacity
+                            style={styles.bottomText}
+                            onPress={() => navigation.navigate('Signin')}>
+                            <Typo style={{ color: colors.blue }}>Back to Sign In</Typo>
                         </TouchableOpacity>
                     )}
-                </ScrollView>
-                {/* Back to Sign In button (always visible except during loading) */}
-                {!loading && !resendLoading && (
-                    <TouchableOpacity
-                        style={styles.bottomText}
-                        onPress={() => navigation.navigate('Signin')}>
-                        <Typo style={{ color: colors.blue }}>Back to Sign In</Typo>
-                    </TouchableOpacity>
-                )}
-            </BlurView>
+                </BlurView>
+            </ScrollView>
         </SafeAreaView>
     );
 }
 
-// --- Styles (similar to ForgotPasswordScreen, adjust as needed) ---
+// --- Styles ---
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {
-        ...StyleSheet.absoluteFillObject,
+        flexGrow: 1, // Make blur view grow
+        paddingHorizontal: spacingX._20,
         paddingTop: paddingTop,
-        padding: spacingY._20,
-        overflow: 'hidden',
+        paddingBottom: spacingY._20, // Padding at bottom
         borderRadius: radius._20,
+        marginHorizontal: spacingX._10, // Add some margin
+        marginVertical: spacingY._10,
+        overflow: 'hidden',
+        justifyContent: 'space-between', // Push bottom text down
     },
-    background: { flex: 1, ...StyleSheet.absoluteFillObject },
+    contentView: {
+        alignItems: 'center', // Center content horizontally
+    },
+    background: { flex: 1, ...StyleSheet.absoluteFillObject, backgroundColor: colors.white },
     inputView: {
         backgroundColor: colors.white, borderRadius: radius._15, marginTop: spacingY._15,
-        shadowColor: colors.lightBlue, shadowOffset: { height: 0, width: 0 }, shadowOpacity: 0.9,
+        shadowColor: colors.lightBlue, shadowOffset: { height: 1, width: 0 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
         flexDirection: 'row', alignItems: 'center', paddingRight: spacingX._15,
+        width: '90%', // Make input wider
+        borderWidth: Platform.OS === 'android' ? 0.5 : 0, borderColor: '#0000001A',
     },
     input: {
-        paddingVertical: spacingY._20, paddingHorizontal: spacingX._20,
-        fontSize: normalizeY(16), flex: 1,
+        paddingVertical: spacingY._15, paddingHorizontal: spacingX._20,
+        fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55,
+        textAlign: 'center', // Center OTP input text
+        letterSpacing: 3, // Add spacing for OTP digits
     },
     text: {
         fontWeight: '600', textAlign: 'center', alignSelf: 'center',
-        marginTop: '10%', marginBottom: spacingY._10,
+        marginTop: spacingY._20, marginBottom: spacingY._10, // Adjusted margins
     },
     body: {
         textAlign: 'center', alignSelf: 'center', marginBottom: spacingY._20,
         color: colors.gray, paddingHorizontal: spacingX._10,
+        width: '90%', // Limit width
     },
     actionButton: {
         backgroundColor: colors.primary, borderRadius: radius._12, marginTop: spacingY._20,
+        width: '90%', // Match input width
     },
     linkButton: {
         alignSelf: 'center', marginTop: spacingY._15,
     },
     bottomText: {
-        alignSelf: 'center', marginTop: 'auto', // Push to bottom
-        paddingBottom: spacingY._20,
+        alignSelf: 'center',
+        paddingBottom: spacingY._10, // Adjust padding
     },
     // Background circles
     c1: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: colors.lightBlue + '50', position: 'absolute', top: '10%', right: '-25%' },

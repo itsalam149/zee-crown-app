@@ -1,5 +1,5 @@
 // screens/ForgotPasswordScreen.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react'; // Added useEffect
 import {
     StyleSheet,
     View,
@@ -9,16 +9,17 @@ import {
     Dimensions,
     Platform,
     ActivityIndicator,
-    ScrollView, // Added
+    ScrollView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from 'config/colors';
-import { radius, spacingX, spacingY } from 'config/spacing';
-import Typo from 'components/Typo';
-import AppButton from 'components/AppButton';
-import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase';
-import { normalizeY } from 'utils/normalize';
+import colors from '../config/colors'; // Adjusted path
+import { radius, spacingX, spacingY } from '../config/spacing'; // Adjusted path
+import Typo from '../components/Typo'; // Adjusted path
+import AppButton from '../components/AppButton'; // Adjusted path
+// *** FIX: Import useNavigation and useRoute ***
+import { useNavigation, useRoute } from '@react-navigation/native';
+import { supabase } from '../lib/supabase'; // Adjusted path
+import { normalizeY } from '../utils/normalize'; // Adjusted path
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons'; // For eye icon
 // Import OtpType from VerifyOtpScreen
@@ -27,19 +28,19 @@ import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
-// --- State Enum for managing steps ---
+// State Enum for managing steps
 const ResetSteps = {
     ENTER_EMAIL: 'ENTER_EMAIL',
-    // ENTER_OTP step is now handled by VerifyOtpScreen
-    ENTER_NEW_PASSWORD: 'ENTER_NEW_PASSWORD', // New state for password entry
+    ENTER_NEW_PASSWORD: 'ENTER_NEW_PASSWORD',
 };
 
 function ForgotPasswordScreen() {
     const navigation = useNavigation();
-    // --- Current Step now starts at ENTER_EMAIL ---
+    // *** FIX: Get the route object using the hook ***
+    const route = useRoute();
+
     const [currentStep, setCurrentStep] = useState(ResetSteps.ENTER_EMAIL);
     const [email, setEmail] = useState('');
-    // --- OTP state is removed, handled by VerifyOtpScreen ---
     const [newPassword, setNewPassword] = useState('');
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
     const [loading, setLoading] = useState(false);
@@ -53,11 +54,10 @@ function ForgotPasswordScreen() {
             return;
         }
         setLoading(true);
-        // Use signInWithOtp for password reset
         const { error } = await supabase.auth.signInWithOtp({
             email: email,
             options: {
-                shouldCreateUser: false, // Don't create user if email doesn't exist
+                shouldCreateUser: false,
             }
         });
 
@@ -70,34 +70,41 @@ function ForgotPasswordScreen() {
                 text1: 'Check your email',
                 text2: 'An OTP has been sent to reset your password.',
             });
-            // --- NAVIGATE TO VerifyOtpScreen ---
+            // Navigate to VerifyOtpScreen
             navigation.navigate('VerifyOtp', {
                 email: email,
-                otpType: OtpType.PASSWORD_RESET, // Specify the type
-                nextScreen: 'ForgotPassword', // Tell VerifyOtp to come back here on success
-                nextScreenParams: { nextStep: ResetSteps.ENTER_NEW_PASSWORD } // Pass params for next step
+                otpType: OtpType.PASSWORD_RESET,
+                nextScreen: 'ForgotPassword', // Come back here on success
+                nextScreenParams: { nextStep: ResetSteps.ENTER_NEW_PASSWORD } // Tell it to go to password entry
             });
         }
     };
 
-    // --- Check if we need to move to the next step based on navigation params ---
-    React.useEffect(() => {
-        if (route.params?.nextStep === ResetSteps.ENTER_NEW_PASSWORD && route.params?.email === email) {
+    // --- Effect to check if returning from VerifyOtpScreen ---
+    // *** FIX: This now correctly uses the 'route' object ***
+    useEffect(() => {
+        // Check if navigation parameters indicate returning from successful OTP verification
+        if (route.params?.nextStep === ResetSteps.ENTER_NEW_PASSWORD && route.params?.email) {
+            setEmail(route.params.email); // Ensure email state matches param
             setCurrentStep(ResetSteps.ENTER_NEW_PASSWORD);
         }
-    }, [route.params]);
+    }, [route.params]); // Rerun effect if route params change
 
-    // --- Verify OTP is REMOVED (handled by VerifyOtpScreen) ---
-
-    // --- Set New Password (remains largely the same) ---
+    // --- Set New Password ---
     const handleSetNewPassword = async () => {
-        if (!newPassword || !confirmNewPassword) { /* ... validation ... */ return; }
-        if (newPassword !== confirmNewPassword) { /* ... validation ... */ return; }
-        if (newPassword.length < 6) { /* ... validation ... */ return; }
+        // Validation
+        if (!newPassword || !confirmNewPassword) {
+            Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter and confirm password.' }); return;
+        }
+        if (newPassword !== confirmNewPassword) {
+            Toast.show({ type: 'error', text1: 'Password Mismatch', text2: 'Passwords do not match.' }); return;
+        }
+        if (newPassword.length < 6) {
+            Toast.show({ type: 'error', text1: 'Password Too Short', text2: 'Password must be >= 6 characters.' }); return;
+        }
 
         setLoading(true);
-        // User should be authenticated via OTP from VerifyOtpScreen,
-        // so updateUser should work.
+        // User should be authenticated via OTP session from VerifyOtpScreen
         const { error } = await supabase.auth.updateUser({
             password: newPassword
         });
@@ -105,16 +112,17 @@ function ForgotPasswordScreen() {
         setLoading(false);
         if (error) {
             Toast.show({ type: 'error', text1: 'Password Reset Failed', text2: error.message });
-            // Might need to sign out if the session is stuck
+            // Sign out just in case the session is invalid
             await supabase.auth.signOut().catch(console.error);
             setCurrentStep(ResetSteps.ENTER_EMAIL); // Go back to start
+            setEmail(''); // Clear email
         } else {
             Toast.show({
                 type: 'success',
                 text1: 'Password Reset Successful',
                 text2: 'You can now sign in with your new password.',
             });
-            await supabase.auth.signOut(); // Sign out the temporary session
+            await supabase.auth.signOut(); // Sign out the temporary OTP session
             // Use setTimeout for navigation stability
             setTimeout(() => {
                 navigation.navigate('Signin');
@@ -122,10 +130,9 @@ function ForgotPasswordScreen() {
         }
     };
 
-    // --- Render different UI based on the current step ---
+    // --- Render UI based on current step ---
     const renderContent = () => {
         switch (currentStep) {
-            // --- ENTER_OTP case is REMOVED ---
             case ResetSteps.ENTER_NEW_PASSWORD:
                 return (
                     <>
@@ -156,11 +163,12 @@ function ForgotPasswordScreen() {
                         <AppButton
                             onPress={handleSetNewPassword}
                             label={loading ? 'Saving...' : 'Set New Password'}
+                            loading={loading}
                             disabled={loading}
                             style={styles.actionButton}
                         />
-                        {/* Optional: Button to go back if needed, though usually not required here */}
-                        {/* <TouchableOpacity style={styles.linkButton} onPress={() => setCurrentStep(ResetSteps.ENTER_EMAIL)}>
+                        {/* Optional: Button to restart the process */}
+                        {/* <TouchableOpacity style={styles.linkButton} onPress={() => { setEmail(''); setCurrentStep(ResetSteps.ENTER_EMAIL); }}>
                             <Typo style={{ color: colors.blue }}>Start Over?</Typo>
                          </TouchableOpacity> */}
                     </>
@@ -183,6 +191,7 @@ function ForgotPasswordScreen() {
                         <AppButton
                             onPress={handleSendOtp}
                             label={loading ? 'Sending OTP...' : 'Send OTP'}
+                            loading={loading}
                             disabled={loading}
                             style={styles.actionButton}
                         />
@@ -201,7 +210,9 @@ function ForgotPasswordScreen() {
             </View>
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
-                    {renderContent()}
+                    <View style={styles.contentView}>
+                        {renderContent()}
+                    </View>
                     {!loading && (
                         <TouchableOpacity
                             style={styles.bottomText}
@@ -209,26 +220,28 @@ function ForgotPasswordScreen() {
                             <Typo style={{ color: colors.blue }}>Back to Sign In</Typo>
                         </TouchableOpacity>
                     )}
-                    {/* {loading && <ActivityIndicator size="large" color={colors.primary} style={styles.loadingIndicator} />} */}
                 </BlurView>
             </ScrollView>
         </SafeAreaView>
     );
 }
 
-// --- Styles (Add eyeIcon style) ---
+// --- Styles ---
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {
-        // Use flexGrow instead of absoluteFill with ScrollView
         flexGrow: 1,
-        paddingTop: paddingTop * 0.8, // Adjust padding as needed
-        padding: spacingY._20,
-        paddingBottom: spacingY._60, // Ensure space for bottom text
+        paddingHorizontal: spacingX._20,
+        paddingTop: paddingTop,
+        paddingBottom: spacingY._20,
         borderRadius: radius._20,
-        marginHorizontal: spacingX._10, // Add some margin
+        marginHorizontal: spacingX._10,
         marginVertical: spacingY._10,
         overflow: 'hidden',
+        justifyContent: 'space-between', // Push bottom text down
+    },
+    contentView: { // Center the main form content
+        alignItems: 'center',
     },
     background: { flex: 1, ...StyleSheet.absoluteFillObject, backgroundColor: colors.white },
     inputView: {
@@ -236,12 +249,14 @@ const styles = StyleSheet.create({
         shadowColor: colors.lightBlue, shadowOffset: { height: 1, width: 0 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2,
         flexDirection: 'row', alignItems: 'center', paddingRight: spacingX._5,
         borderWidth: Platform.OS === 'android' ? 0.5 : 0, borderColor: '#0000001A',
+        width: '95%', // Make inputs slightly wider
     },
     input: {
-        paddingVertical: spacingY._15, paddingHorizontal: spacingX._20,
+        paddingVertical: spacingY._10, // Reduced padding
+        paddingHorizontal: spacingX._20,
         fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55,
     },
-    eyeIcon: { // Added style for eye icon touchable area
+    eyeIcon: {
         paddingHorizontal: spacingX._15,
     },
     text: {
@@ -251,18 +266,20 @@ const styles = StyleSheet.create({
     body: {
         textAlign: 'center', alignSelf: 'center', marginBottom: spacingY._20,
         color: colors.gray, paddingHorizontal: spacingX._10,
+        width: '95%', // Match input width
     },
     actionButton: {
         backgroundColor: colors.primary, borderRadius: radius._12, marginTop: spacingY._20,
+        width: '95%', // Match input width
     },
     linkButton: {
         alignSelf: 'center', marginTop: spacingY._15,
     },
     bottomText: {
-        alignSelf: 'center', marginTop: spacingY._30, // Increased spacing
-        paddingBottom: spacingY._10, // Reduced bottom padding inside blur
+        alignSelf: 'center',
+        paddingBottom: spacingY._10,
     },
-    loadingIndicator: {
+    loadingIndicator: { // If needed separately
         marginTop: spacingY._20,
     },
     // Background circles
