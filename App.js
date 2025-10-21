@@ -79,31 +79,38 @@ async function registerForPushNotificationsAsync() {
 
 export default function App() {
   const [user, setUser] = useState(null);
-  const [category, setCategory] = useState(null);
+  const [category, setCategory] = useState(null); // Assuming you still use category selection
 
+  // --- Authentication State Listener ---
   useEffect(() => {
+    // Check initial session state when the app loads
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
-      if (!seeion?.user) {
-        setCategory(null);
+      // *** FIX: Corrected typo 'seeion' to 'session' ***
+      if (!session?.user) {
+        setCategory(null); // Ensure category is null if no user
       }
     });
 
+    // Listen for subsequent auth state changes (login, logout, etc.)
     const { data: authListener } = supabase.auth.onAuthStateChange(
       async (_event, session) => {
         const sessionUser = session?.user ?? null;
-        setUser(sessionUser);
+        setUser(sessionUser); // Update user state based on the event
 
+        // Reset category if user logs in, logs out, or profile is updated
         if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED') {
           setCategory(null);
         }
 
+        // Register for push notifications and update profile only when user signs in
         if (_event === 'SIGNED_IN' && sessionUser) {
           const token = await registerForPushNotificationsAsync();
           if (token && sessionUser.id) {
+            // Use upsert to create/update the profile with the token
             const { error } = await supabase
               .from('profiles')
-              .upsert({ id: sessionUser.id, expo_push_token: token }, { onConflict: 'id' });
+              .upsert({ id: sessionUser.id, expo_push_token: token }, { onConflict: 'id' }); // Update token on login
             if (error) {
               console.error("Error saving push token:", error);
             }
@@ -112,18 +119,18 @@ export default function App() {
       }
     );
 
-    // Cleanup listener on unmount
+    // Cleanup listener on component unmount
     return () => {
       authListener.subscription.unsubscribe();
     };
-  }, []);
+  }, []); // Empty dependency array ensures this runs once on mount
 
   // --- Notification Listeners (FIXED) ---
   useEffect(() => {
     // Listener for received notifications (app in foreground)
     const notificationListener = Notifications.addNotificationReceivedListener(notification => {
       console.log('Notification Received: ', notification.request.content.title);
-      // Optional: Show an in-app message using Toast or a custom component
+      // Optional: Show an in-app message using Toast
       Toast.show({
         type: 'info',
         text1: notification.request.content.title || 'New Notification',
