@@ -38,6 +38,7 @@ function ForgotPasswordScreen() {
             return;
         }
         setLoading(true);
+        console.log("ForgotPasswordScreen: Sending password reset OTP for", email); // Log
         const { error } = await supabase.auth.signInWithOtp({
             email: email,
             options: { shouldCreateUser: false, }
@@ -45,50 +46,26 @@ function ForgotPasswordScreen() {
 
         setLoading(false);
         if (error) {
+            console.error("ForgotPasswordScreen: Error sending OTP:", error); // Log
             Toast.show({ type: 'error', text1: 'Error Sending OTP', text2: error.message });
         } else {
+            console.log("ForgotPasswordScreen: OTP sent successfully."); // Log
             Toast.show({
                 type: 'success',
                 text1: 'Check your email',
                 text2: 'An OTP has been sent to reset your password.',
             });
             // Navigate to VerifyOtpScreen
-            // *** FIX: Pass nextScreen parameter ***
+            console.log("ForgotPasswordScreen: Navigating to VerifyOtp with nextScreen='SetNewPassword'"); // Log
             navigation.navigate('VerifyOtp', {
                 email: email,
                 otpType: OtpType.PASSWORD_RESET,
-                nextScreen: 'SetNewPassword', // Tell VerifyOtp where to go on success
-                // No nextScreenParams needed if SetNewPassword only needs the email
+                nextScreen: 'SetNewPassword', // <-- Ensure this matches AuthNavigator name
             });
         }
     };
 
-    // --- Render only the Email Entry UI ---
-    const renderContent = () => {
-        return (
-            <>
-                <Typo size={26} style={styles.text}>Forgot Password?</Typo>
-                <Typo size={16} style={styles.body}>
-                    Enter your email address below and we'll send you an OTP to reset your password.
-                </Typo>
-                <View style={styles.inputView}>
-                    <TextInput
-                        value={email} onChangeText={setEmail}
-                        placeholder="Enter your email" style={styles.input}
-                        autoCapitalize="none" keyboardType="email-address"
-                    />
-                </View>
-                <AppButton
-                    onPress={handleSendOtp}
-                    label={loading ? 'Sending OTP...' : 'Send OTP'}
-                    loading={loading}
-                    disabled={loading}
-                    style={styles.actionButton}
-                />
-            </>
-        );
-    };
-
+    // --- Render ---
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.background}>
@@ -100,7 +77,24 @@ function ForgotPasswordScreen() {
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
                     <View style={styles.contentView}>
-                        {renderContent()}
+                        <Typo size={26} style={styles.text}>Forgot Password?</Typo>
+                        <Typo size={16} style={styles.body}>
+                            Enter your email address below and we'll send you an OTP to reset your password.
+                        </Typo>
+                        <View style={styles.inputView}>
+                            <TextInput
+                                value={email} onChangeText={setEmail}
+                                placeholder="Enter your email" style={styles.input}
+                                autoCapitalize="none" keyboardType="email-address"
+                            />
+                        </View>
+                        <AppButton
+                            onPress={handleSendOtp}
+                            label={loading ? 'Sending OTP...' : 'Send OTP'}
+                            loading={loading}
+                            disabled={loading}
+                            style={styles.actionButton}
+                        />
                     </View>
                     {!loading && (
                         <TouchableOpacity
