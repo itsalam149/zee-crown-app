@@ -1,5 +1,5 @@
-// screens/VerifyOtpScreen.js
-import React, { useState, useEffect } from 'react';
+// screens/SetNewPasswordScreen.js
+import React, { useState } from 'react';
 import {
     StyleSheet,
     View,
@@ -19,137 +19,77 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { supabase } from '../lib/supabase';
 import { normalizeY } from '../utils/normalize';
 import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
-export const OtpType = {
-    SIGNUP: 'signup',
-    PASSWORD_RESET: 'email',
-};
-
-function VerifyOtpScreen() {
+function SetNewPasswordScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { email, otpType } = route.params || {};
+    const { email } = route.params || {};
 
-    // --- Validation for params ---
-    useEffect(() => {
-        if (!email || !otpType) {
-            Toast.show({
-                type: 'error',
-                text1: 'Error',
-                text2: 'Missing required information.',
-            });
-            if (navigation.canGoBack()) navigation.goBack();
-        }
-    }, [email, otpType]);
-
-    const [otp, setOtp] = useState('');
+    const [newPassword, setNewPassword] = useState('');
+    const [confirmNewPassword, setConfirmNewPassword] = useState('');
     const [loading, setLoading] = useState(false);
-    const [resendLoading, setResendLoading] = useState(false);
+    const [isPasswordSecure, setIsPasswordSecure] = useState(true);
+    const [isConfirmSecure, setIsConfirmSecure] = useState(true);
 
-    const isSignupOtp = otpType === OtpType.SIGNUP;
-    const title = isSignupOtp ? 'Verify Your Email' : 'Enter Password Reset Code';
-    const description = `Enter the 6-digit code sent to ${email}.`;
-
-    // --- Verify OTP ---
-    const handleVerifyOtp = async () => {
-        if (!otp || otp.length !== 6) {
+    const handleSetNewPassword = async () => {
+        if (!newPassword || !confirmNewPassword) {
             Toast.show({
                 type: 'error',
                 text1: 'Input Error',
-                text2: 'Please enter the 6-digit OTP.',
+                text2: 'Please enter and confirm password.',
+            });
+            return;
+        }
+        if (newPassword !== confirmNewPassword) {
+            Toast.show({
+                type: 'error',
+                text1: 'Password Mismatch',
+                text2: 'Passwords do not match.',
+            });
+            return;
+        }
+        if (newPassword.length < 6) {
+            Toast.show({
+                type: 'error',
+                text1: 'Password Too Short',
+                text2: 'Password must be at least 6 characters.',
             });
             return;
         }
 
         setLoading(true);
-        console.log(`Verifying OTP (${otp}) for type: ${otpType}`);
 
-        const { data, error } = await supabase.auth.verifyOtp({
-            email,
-            token: otp,
-            type: otpType,
+        const { error } = await supabase.auth.updateUser({
+            password: newPassword,
         });
 
         setLoading(false);
 
         if (error) {
-            console.error('OTP Verification Error:', error);
             Toast.show({
                 type: 'error',
-                text1: 'OTP Verification Failed',
+                text1: 'Password Reset Failed',
                 text2: error.message,
             });
-            return;
-        }
-
-        if (data.session) {
-            // Successful verification
-            if (isSignupOtp) {
-                Toast.show({
-                    type: 'success',
-                    text1: 'Email Verified!',
-                    text2: 'Sign in successful.',
-                });
-                console.log('Signup OTP verified — relying on App.js listener.');
-            } else {
-                // Password reset flow
-                Toast.show({
-                    type: 'success',
-                    text1: 'OTP Verified',
-                    text2: 'You can now set a new password.',
-                });
-                console.log('Navigating to SetNewPassword...');
-                navigation.navigate('SetNewPassword', { email }); // ✅ FIXED ROUTE NAME
-            }
-        } else {
-            Toast.show({
-                type: 'error',
-                text1: 'Verification Issue',
-                text2: 'Could not verify OTP. Please try again or resend.',
-            });
-        }
-    };
-
-    // --- Resend OTP ---
-    const handleResendOtp = async () => {
-        if (!email) return;
-        setResendLoading(true);
-        console.log(`Resending OTP for type: ${otpType}`);
-
-        let error = null;
-        if (isSignupOtp) {
-            ({ error } = await supabase.auth.resend({ type: 'signup', email }));
-        } else {
-            ({ error } = await supabase.auth.signInWithOtp({
-                email,
-                options: { shouldCreateUser: false },
-            }));
-        }
-
-        setResendLoading(false);
-
-        if (error) {
-            console.error('Resend OTP Error:', error);
-            Toast.show({
-                type: 'error',
-                text1: 'Error Resending OTP',
-                text2: error.message,
-            });
+            await supabase.auth.signOut().catch(console.error);
+            navigation.navigate('Signin');
         } else {
             Toast.show({
                 type: 'success',
-                text1: 'OTP Resent',
-                text2: 'Check your email for a new OTP.',
+                text1: 'Password Reset Successful',
+                text2: 'You can now sign in with your new password.',
             });
+            await supabase.auth.signOut();
+            navigation.navigate('Signin');
         }
     };
 
     return (
         <SafeAreaView style={styles.container}>
-            {/* Background */}
             <View style={styles.background}>
                 <View style={[styles.c1, { opacity: 0.5 }]} />
                 <View
@@ -162,51 +102,65 @@ function VerifyOtpScreen() {
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
                     <View style={styles.contentView}>
-                        <Typo size={26} style={styles.text}>{title}</Typo>
-                        <Typo size={16} style={styles.body}>{description}</Typo>
+                        <Typo size={26} style={styles.text}>Set New Password</Typo>
+                        <Typo size={16} style={styles.body}>
+                            Enter your new password {email ? `for ${email}` : ''}.
+                        </Typo>
 
+                        {/* New Password */}
                         <View style={styles.inputView}>
                             <TextInput
-                                value={otp}
-                                onChangeText={setOtp}
-                                placeholder="Enter 6-digit OTP"
-                                placeholderTextColor="grey"
+                                value={newPassword}
+                                onChangeText={setNewPassword}
+                                placeholder="New Password"
                                 style={styles.input}
+                                secureTextEntry={isPasswordSecure}
                                 autoCapitalize="none"
-                                keyboardType="number-pad"
-                                maxLength={6}
                             />
+                            <TouchableOpacity
+                                onPress={() => setIsPasswordSecure(!isPasswordSecure)}
+                                style={styles.eyeIcon}
+                            >
+                                <Ionicons
+                                    name={isPasswordSecure ? 'eye-off-outline' : 'eye-outline'}
+                                    size={24}
+                                    color="grey"
+                                />
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Confirm Password */}
+                        <View style={styles.inputView}>
+                            <TextInput
+                                value={confirmNewPassword}
+                                onChangeText={setConfirmNewPassword}
+                                placeholder="Confirm New Password"
+                                style={styles.input}
+                                secureTextEntry={isConfirmSecure}
+                                autoCapitalize="none"
+                            />
+                            <TouchableOpacity
+                                onPress={() => setIsConfirmSecure(!isConfirmSecure)}
+                                style={styles.eyeIcon}
+                            >
+                                <Ionicons
+                                    name={isConfirmSecure ? 'eye-off-outline' : 'eye-outline'}
+                                    size={24}
+                                    color="grey"
+                                />
+                            </TouchableOpacity>
                         </View>
 
                         <AppButton
-                            onPress={handleVerifyOtp}
-                            label={loading ? 'Verifying...' : 'Verify Code'}
+                            onPress={handleSetNewPassword}
+                            label={loading ? 'Saving...' : 'Set New Password & Sign In'}
                             loading={loading}
-                            disabled={loading || resendLoading}
+                            disabled={loading}
                             style={styles.actionButton}
                         />
-
-                        <TouchableOpacity
-                            style={styles.linkButton}
-                            onPress={handleResendOtp}
-                            disabled={loading || resendLoading}
-                        >
-                            <Typo style={{ color: colors.gray }}>
-                                {resendLoading ? 'Resending...' : 'Resend OTP'}
-                            </Typo>
-                        </TouchableOpacity>
-
-                        {!isSignupOtp && (
-                            <TouchableOpacity
-                                style={styles.linkButton}
-                                onPress={() => navigation.canGoBack() && navigation.goBack()}
-                            >
-                                <Typo style={{ color: colors.blue }}>Enter different email?</Typo>
-                            </TouchableOpacity>
-                        )}
                     </View>
 
-                    {!loading && !resendLoading && (
+                    {!loading && (
                         <TouchableOpacity
                             style={styles.bottomText}
                             onPress={() => navigation.navigate('Signin')}
@@ -250,10 +204,10 @@ const styles = StyleSheet.create({
         elevation: 2,
         flexDirection: 'row',
         alignItems: 'center',
-        paddingRight: spacingX._15,
-        width: '90%',
+        paddingRight: spacingX._5,
         borderWidth: Platform.OS === 'android' ? 0.5 : 0,
         borderColor: '#0000001A',
+        width: '95%',
     },
     input: {
         paddingVertical: spacingY._10,
@@ -262,14 +216,13 @@ const styles = StyleSheet.create({
         flex: 1,
         color: colors.black,
         height: 55,
-        textAlign: 'center',
-        letterSpacing: 3,
     },
+    eyeIcon: { paddingHorizontal: spacingX._15 },
     text: {
         fontWeight: '600',
         textAlign: 'center',
         alignSelf: 'center',
-        marginTop: spacingY._20,
+        marginTop: spacingY._10,
         marginBottom: spacingY._10,
     },
     body: {
@@ -278,15 +231,14 @@ const styles = StyleSheet.create({
         marginBottom: spacingY._20,
         color: colors.gray,
         paddingHorizontal: spacingX._10,
-        width: '90%',
+        width: '95%',
     },
     actionButton: {
         backgroundColor: colors.primary,
         borderRadius: radius._12,
         marginTop: spacingY._20,
-        width: '90%',
+        width: '95%',
     },
-    linkButton: { alignSelf: 'center', marginTop: spacingY._15 },
     bottomText: { alignSelf: 'center', paddingBottom: spacingY._10 },
     c1: {
         width: width / 1.5,
@@ -319,4 +271,4 @@ const styles = StyleSheet.create({
     },
 });
 
-export default VerifyOtpScreen;
+export default SetNewPasswordScreen;

@@ -69,39 +69,34 @@ async function registerForPushNotificationsAsync() {
 
 // --- Main App Component ---
 export default function App() {
-  // *** FIX: Store the whole session object, not just the user ***
+  // *** Use session state for navigation control ***
   const [session, setSession] = useState(null);
-  const [category, setCategory] = useState(null); // Keep category state
+  const [category, setCategory] = useState(null);
 
   // --- Authentication State Listener ---
   useEffect(() => {
-    // Check initial session state when the app first loads
+    // Check initial session state
     supabase.auth.getSession().then(({ data: { session: initialSession } }) => {
-      // *** FIX: Set the session state ***
       setSession(initialSession);
-      // Ensure category is null if no session
       if (!initialSession) {
         setCategory(null);
       }
     }).catch(error => {
       console.error("Error getting initial session:", error);
-      setSession(null); // Ensure session is null on error
+      setSession(null);
       setCategory(null);
     });
 
-    // Subscribe to future authentication state changes
+    // Subscribe to future auth state changes
     const { data } = supabase.auth.onAuthStateChange(
       async (_event, currentSession) => {
-        // *** FIX: Set the session state ***
-        setSession(currentSession);
-        const sessionUser = currentSession?.user ?? null; // Get user from session
+        setSession(currentSession); // Update session state
+        const sessionUser = currentSession?.user ?? null;
 
-        // Reset category on significant auth events
         if (_event === 'SIGNED_IN' || _event === 'SIGNED_OUT' || _event === 'USER_UPDATED' || !currentSession) {
           setCategory(null);
         }
 
-        // Register/Update push token only when fully signed in
         if (_event === 'SIGNED_IN' && sessionUser) {
           const token = await registerForPushNotificationsAsync();
           if (token && sessionUser.id) {
@@ -118,7 +113,7 @@ export default function App() {
 
     const subscription = data?.subscription;
 
-    // Cleanup function
+    // Cleanup
     return () => {
       if (subscription && typeof subscription.unsubscribe === 'function') {
         subscription.unsubscribe();
@@ -126,9 +121,9 @@ export default function App() {
         console.warn('Could not unsubscribe auth listener.');
       }
     };
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
 
-  // --- Notification Listeners (No change needed here) ---
+  // --- Notification Listeners ---
   useEffect(() => {
     const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
       console.log('Notification Received:', notification.request.content.title);
@@ -150,26 +145,20 @@ export default function App() {
     };
   }, []);
 
-  // --- Render the App ---
-  // *** FIX: Derive user from session for context ***
-  const contextUser = session?.user ?? null;
+  // --- Render ---
+  const contextUser = session?.user ?? null; // Derive user for context
 
   return (
-    // Pass derived user to context
     <AuthContext.Provider value={{ user: contextUser, setUser: () => { }, category, setCategory }}>
       <SafeAreaProvider>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <GestureHandlerRootView style={{ flex: 1 }}>
           <NavigationContainer>
-            {/* *** FIX: Base navigation on session existence, not user *** */}
-            {session ? ( // If session exists (user is fully authenticated)...
-              category ? ( // ...and a category is selected...
-                <AppNavigator /> // ...show the main app navigator.
-              ) : ( // ...but no category is selected...
-                <CategoryNavigator /> // ...show the category selection navigator.
-              )
-            ) : ( // If no session (user is logged out or pending verification)...
-              <AuthNavigator /> // ...show the authentication navigator.
+            {/* *** Base navigation on session existence *** */}
+            {session ? ( // If session exists...
+              category ? <AppNavigator /> : <CategoryNavigator />
+            ) : ( // If no session...
+              <AuthNavigator />
             )}
           </NavigationContainer>
         </GestureHandlerRootView>
