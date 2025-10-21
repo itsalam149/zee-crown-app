@@ -13,10 +13,10 @@ const TabNavigator = () => {
     <Tab.Navigator
       initialRouteName="Home"
       tabBar={(props) => <NewBottomTab {...props} />}
-      screenOptions={{ headerShown: false }}>
+      screenOptions={{ headerShown: false }}
+    >
       <Tab.Screen name="Home" component={HomeScreen} />
       <Tab.Screen name="Cart" component={CartScreen} />
-      {/* Favourites Screen Removed */}
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
