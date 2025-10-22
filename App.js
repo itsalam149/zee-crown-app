@@ -1,23 +1,24 @@
 // App.js
 import 'react-native-gesture-handler';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Platform, StatusBar, ActivityIndicator, View, StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, useNavigationContainerRef } from '@react-navigation/native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import Toast from 'react-native-toast-message';
 import Constants from 'expo-constants';
 import * as Notifications from 'expo-notifications';
 
-import { supabase } from './lib/supabase'; // Ensure this path is correct
-import AppNavigator from './navigation/AppNavigator';
-import AuthNavigator from './navigation/AuthNavigator';
-import CategoryNavigator from './navigation/CategoryNavigator';
-import AuthContext from './auth/AuthContext'; // Ensure this path is correct
-import colors from './config/colors'; // Assuming colors config exists
+import { supabase } from './lib/supabase'; //
+import AppNavigator from './navigation/AppNavigator'; //
+import AuthNavigator from './navigation/AuthNavigator'; //
+import CategoryNavigator from './navigation/CategoryNavigator'; //
+import AuthContext from './auth/AuthContext'; //
+import colors from './config/colors'; //
+import { OtpType } from './screens/VerifyOtpScreen'; //
 
-// --- Notification Handler ---
-Notifications.setNotificationHandler({
+// --- Notification Handler (Keep as is) ---
+Notifications.setNotificationHandler({ //
   handleNotification: async () => ({
     shouldShowAlert: true,
     shouldPlaySound: false,
@@ -25,8 +26,9 @@ Notifications.setNotificationHandler({
   }),
 });
 
-// --- Function to Register for Push Notifications ---
-async function registerForPushNotificationsAsync() {
+// --- Function to Register for Push Notifications (Keep as is) ---
+async function registerForPushNotificationsAsync() { //
+  // ... (rest of the function remains the same)
   let token;
   if (Platform.OS === 'android') {
     try {
@@ -37,7 +39,7 @@ async function registerForPushNotificationsAsync() {
         lightColor: '#FF231F7C',
       });
     } catch (e) {
-      console.log('Could not set notification channel:', e);
+      console.log('[Push Notification] Could not set channel:', e);
     }
   }
 
@@ -48,153 +50,162 @@ async function registerForPushNotificationsAsync() {
     finalStatus = status;
   }
   if (finalStatus !== 'granted') {
-    console.log('Permission not granted for push notifications!');
+    console.log('[Push Notification] Permission not granted!');
     return;
   }
 
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
+  const projectId = Constants.expoConfig?.extra?.eas?.projectId; //
   if (!projectId) {
-    console.error('Project ID not found. Make sure it is set in your app.config.js');
+    console.error('[Push Notification] Project ID not found in app.config.js'); //
     return;
   }
 
   try {
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-    console.log('Expo Push Token:', token);
+    console.log('[Push Notification] Expo Push Token:', token);
   } catch (e) {
-    console.error("Couldn't get push token:", e);
+    console.error("[Push Notification] Couldn't get push token:", e);
   }
 
   return token;
 }
 
+
 // --- Main App Component ---
 export default function App() {
-  const [session, setSession] = useState(null);
+  // Combine session and confirmation status into one state object
+  const [authState, setAuthState] = useState({
+    session: null,
+    isConfirmed: false,
+    isLoading: true,
+  });
   const [category, setCategory] = useState(null);
-  const [isLoadingSession, setIsLoadingSession] = useState(true); // Loading state
+  const navigationRef = useNavigationContainerRef();
 
   // --- Authentication State Listener ---
   useEffect(() => {
-    setIsLoadingSession(true); // Start loading
-    // Check initial session state
-    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => {
-      if (error) {
-        console.error("Error getting initial session:", error);
+    console.log("[Auth] Setting up listener and checking initial session...");
+    setAuthState(prev => ({ ...prev, isLoading: true }));
+
+    // Check initial state first
+    supabase.auth.getSession().then(({ data: { session: initialSession }, error }) => { //
+      let confirmed = false;
+      if (!error && initialSession) {
+        confirmed = !!initialSession.user?.email_confirmed_at;
+        console.log(`[Auth] Initial Session Check: Session found (User: ${initialSession.user.id}, Confirmed: ${confirmed})`);
+      } else if (error) {
+        console.error("[Auth] Error getting initial session:", error);
       } else {
-        console.log("Initial Session Check:", initialSession ? `Session found (User: ${initialSession.user.id})` : 'No session');
-        setSession(initialSession); // Set initial session state
-        if (!initialSession) {
-          setCategory(null);
-        }
+        console.log("[Auth] Initial Session Check: No session found.");
       }
-      setIsLoadingSession(false); // Mark loading as complete regardless of outcome
+      // Update state based on initial check
+      setAuthState({ session: initialSession, isConfirmed: confirmed, isLoading: false });
+      if (!initialSession || !confirmed) {
+        setCategory(null);
+      }
+      console.log("[Auth] Initial session check complete.");
+
     }).catch(error => {
-      console.error("Catch Error getting initial session:", error);
-      setSession(null);
+      console.error("[Auth] Catch Error during initial getSession:", error);
+      setAuthState({ session: null, isConfirmed: false, isLoading: false });
       setCategory(null);
-      setIsLoadingSession(false);
+      console.log("[Auth] Initial session check complete (catch).");
     });
 
-    // Subscribe to future auth state changes
-    const { data } = supabase.auth.onAuthStateChange(
+    // --- Auth State Change Listener ---
+    const { data: authListener } = supabase.auth.onAuthStateChange( //
       async (_event, currentSession) => {
-        console.log("Auth Event:", _event, "Session:", currentSession ? `Exists (User: ${currentSession.user.id}, Email Confirmed: ${currentSession.user.email_confirmed_at})` : 'Null');
+        const confirmed = !!currentSession?.user?.email_confirmed_at;
+        const userId = currentSession?.user?.id;
+        console.log(`[Auth] State Change Event: ${_event}`, "| Session:", currentSession ? `Exists (User: ${userId}, Confirmed: ${confirmed})` : 'Null');
 
-        // Explicit check for immediate session after signup (indicates misconfiguration)
-        if (_event === 'SIGNED_IN' && currentSession && !currentSession.user.email_confirmed_at) {
-          const createdAt = new Date(currentSession.user.created_at).getTime();
-          const now = Date.now();
-          // If signed in within ~5 seconds of creation without confirmation, log warning
-          if ((now - createdAt) < 5000) {
-            console.warn("User received session immediately after signup without email confirmation - **PLEASE VERIFY SUPABASE 'Confirm email' SETTING IS OFF**");
-            // Optional: Force sign out if this behavior is unwanted
-            // console.log("Forcing sign out due to immediate unconfirmed session...");
-            // await supabase.auth.signOut();
-            // setSession(null); // Manually clear session state
-            // return; // Stop processing this event if forcing sign out
+        // *** Update Auth State Object ***
+        setAuthState(prev => {
+          // Prevent unnecessary updates if session object is identical (e.g., token refresh)
+          if (JSON.stringify(prev.session) === JSON.stringify(currentSession) && prev.isConfirmed === confirmed) {
+            console.log("[Auth] State Change: No actual change detected, skipping update.");
+            return prev;
           }
-        }
-
-        // Only update session state if it has actually changed
-        // Prevents some unnecessary re-renders on background token refreshes
-        if (JSON.stringify(session) !== JSON.stringify(currentSession)) {
-          console.log("Session state updated.");
-          setSession(currentSession);
-        } else {
-          console.log("Session state unchanged.");
-        }
-
+          console.log("[Auth] State Change: Updating auth state.");
+          return { session: currentSession, isConfirmed: confirmed, isLoading: false };
+        });
 
         const sessionUser = currentSession?.user ?? null;
 
-        // Reset category on significant auth events or session loss
-        if (['SIGNED_IN', 'SIGNED_OUT', 'USER_UPDATED', 'PASSWORD_RECOVERY'].includes(_event) || !currentSession) {
-          // Reset category if user logs out, or logs in (forcing re-selection)
-          if (_event !== 'TOKEN_REFRESHED') { // Avoid resetting just for token refresh
-            console.log("Resetting category due to auth event:", _event);
-            setCategory(null);
+        // --- Category Reset Logic ---
+        if (_event === 'SIGNED_OUT' || !currentSession || !confirmed) {
+          if (category !== null && _event !== 'TOKEN_REFRESHED' && _event !== 'USER_UPDATED') {
+            console.log("[Auth] Resetting category due to sign-out or unconfirmed email.");
+            setCategory(null); //
           }
         }
 
-        // Register/Update push token only when user is newly signed in
-        if (_event === 'SIGNED_IN' && sessionUser) {
-          await new Promise(resolve => setTimeout(resolve, 1500)); // Delay for profile creation
-          const token = await registerForPushNotificationsAsync();
+        // --- Push Token Registration ---
+        if (_event === 'SIGNED_IN' && sessionUser && confirmed) { // Check confirmation again
+          console.log("[Push Notification] User signed in and confirmed, attempting to register token...");
+          const token = await registerForPushNotificationsAsync(); //
           if (token && sessionUser.id) {
-            console.log("Attempting to save push token for user:", sessionUser.id);
-            const { error } = await supabase
+            console.log("[Push Notification] Saving token for user:", sessionUser.id);
+            const { error: profileError } = await supabase
               .from('profiles')
-              .upsert({ id: sessionUser.id, expo_push_token: token }, { onConflict: 'id' });
-            if (error) {
-              console.error('Error saving push token:', error);
+              .upsert({ id: sessionUser.id, expo_push_token: token }, { onConflict: 'id' }); //
+            if (profileError) {
+              console.error('[Push Notification] Error saving push token:', profileError);
             } else {
-              console.log('Push token save attempt finished.');
+              console.log('[Push Notification] Push token save attempt finished.');
             }
+          } else {
+            console.log("[Push Notification] No token obtained or user ID missing.");
           }
         }
       }
     );
 
-    const subscription = data?.subscription;
-
     // Cleanup
     return () => {
-      if (subscription && typeof subscription.unsubscribe === 'function') {
-        console.log("Unsubscribing auth listener.");
-        subscription.unsubscribe();
+      if (authListener?.subscription) {
+        console.log("[Auth] Unsubscribing auth listener.");
+        authListener.subscription.unsubscribe(); //
       } else {
-        console.warn('Could not unsubscribe auth listener.');
+        console.warn('[Auth] Could not unsubscribe auth listener.');
       }
     };
-  }, []); // Empty dependency array ensures this runs only once
+  }, []); // Run listener setup only once
 
-  // --- Notification Listeners ---
+  // --- Notification Listeners (Keep as is) ---
   useEffect(() => {
-    const notificationListener = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('Notification Received:', notification.request.content.title);
-      Toast.show({
+    const notificationListener = Notifications.addNotificationReceivedListener((notification) => { //
+      console.log('[Notification] Received:', notification.request.content.title);
+      Toast.show({ //
         type: 'info',
         text1: notification.request.content.title || 'New Notification',
         text2: notification.request.content.body || '',
         visibilityTime: 4000,
       });
     });
-    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('Notification Tapped:', response);
+    const responseListener = Notifications.addNotificationResponseReceivedListener((response) => { //
+      console.log('[Notification] Tapped:', response);
+      // Example navigation:
+      // const screen = response.notification.request.content.data?.screen;
+      // if (screen && navigationRef.current?.isReady()) {
+      //     navigationRef.current.navigate(screen);
+      // }
     });
     return () => {
-      notificationListener.remove();
-      responseListener.remove();
+      notificationListener.remove(); //
+      responseListener.remove(); //
     };
   }, []);
 
-  // --- Render ---
-  const contextUser = session?.user ?? null; // Derive user for context
 
-  // Show loading indicator while checking initial session
-  if (isLoadingSession) {
-    console.log("App loading: Checking initial session...");
+  // --- Render Logic ---
+  const contextUser = authState.session?.user ?? null;
+  // *** Use the combined authState for rendering decision ***
+  const showAuthenticatedFlow = authState.session && authState.isConfirmed;
+
+  // Show loading indicator ONLY during the initial check
+  if (authState.isLoading) {
+    console.log("[Render] App loading: Initial session check...");
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={colors.primary || '#0000ff'} />
@@ -202,19 +213,19 @@ export default function App() {
     );
   }
 
-  console.log("App rendering:", session ? "Authenticated Flow" : "Auth Flow");
+  console.log(`[Render] Rendering App -> Authenticated Flow: ${showAuthenticatedFlow}, Category: ${category}`);
 
   return (
+    // AuthContext provides user, category state
     <AuthContext.Provider value={{ user: contextUser, setUser: () => { }, category, setCategory }}>
       <SafeAreaProvider>
         <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
         <GestureHandlerRootView style={{ flex: 1 }}>
-          <NavigationContainer>
-            {/* Base navigation on session existence */}
-            {session ? ( // If session exists...
-              category ? <AppNavigator /> : <CategoryNavigator />
-            ) : ( // If no session...
-              <AuthNavigator />
+          <NavigationContainer ref={navigationRef}>
+            {showAuthenticatedFlow ? (
+              category ? <AppNavigator /> : <CategoryNavigator /> //
+            ) : (
+              <AuthNavigator /> //
             )}
           </NavigationContainer>
         </GestureHandlerRootView>
@@ -224,11 +235,12 @@ export default function App() {
   );
 }
 
+// Styles remain the same
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.white || '#ffffff', // Use default if colors not loaded
+    backgroundColor: colors.white || '#ffffff', //
   }
 });

@@ -21,14 +21,14 @@ import AppButton from '../components/AppButton'; // Adjusted path
 import { useNavigation } from '@react-navigation/native';
 import { supabase } from '../lib/supabase'; // Adjusted path
 import Toast from 'react-native-toast-message';
-// Import the OTP type enum from VerifyOtpScreen
 import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
 
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
-function RegisterScreen(props) {
+function RegisterScreen() {
   const navigation = useNavigation();
+
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
@@ -47,28 +47,46 @@ function RegisterScreen(props) {
   };
 
   const handleRegister = async () => {
-    // --- Input Validation ---
     if (!name || !email || !password || !confirmPassword || !phone) {
-      Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please fill in all fields.' });
+      Toast.show({
+        type: 'error',
+        text1: 'Input Error',
+        text2: 'Please fill in all fields.',
+      });
       return;
     }
+
     const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
     if (!isValidEmail(email)) {
-      Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter a valid email address.' });
+      Toast.show({
+        type: 'error',
+        text1: 'Input Error',
+        text2: 'Please enter a valid email address.',
+      });
       return;
     }
+
     const isValidPassword = (password) => password.length >= 6;
     if (!isValidPassword(password)) {
-      Toast.show({ type: 'error', text1: 'Password Error', text2: 'Password must be at least 6 characters.' });
+      Toast.show({
+        type: 'error',
+        text1: 'Password Error',
+        text2: 'Password must be at least 6 characters.',
+      });
       return;
     }
+
     if (password !== confirmPassword) {
-      Toast.show({ type: 'error', text1: 'Password Error', text2: 'Passwords do not match.' });
+      Toast.show({
+        type: 'error',
+        text1: 'Password Error',
+        text2: 'Passwords do not match.',
+      });
       return;
     }
-    // --- End Validation ---
 
     setLoading(true);
+
     const { data, error } = await supabase.auth.signUp({
       email: email,
       password: password,
@@ -83,53 +101,67 @@ function RegisterScreen(props) {
     setLoading(false);
 
     if (error) {
-      Toast.show({ type: 'error', text1: 'Registration Error', text2: error.message });
+      console.error('Registration Error:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Registration Error',
+        text2: error.message,
+      });
     } else if (data.user && !data.session) {
-      // User created, OTP sent (because "Confirm email" is OFF in Supabase settings)
       Toast.show({
         type: 'info',
         text1: 'Check Your Email',
-        text2: 'An OTP has been sent. Please enter it on the next screen.',
+        text2: 'An OTP has been sent. Please verify your email.',
         visibilityTime: 5000,
       });
-      const registeredEmail = email; // Capture email before clearing
+
+      const registeredEmail = email;
       clearForm();
-      // --- NAVIGATE TO VerifyOtpScreen ---
-      // Use setTimeout to allow state updates/UI changes to settle before navigating
+
       setTimeout(() => {
-        navigation.navigate('VerifyOtp', { // Navigate to the verification screen
+        navigation.navigate('VerifyOtp', {
           email: registeredEmail,
-          otpType: OtpType.SIGNUP, // Specify the type for verification screen logic
+          otpType: OtpType.SIGNUP,
         });
-      }, 0); // Delay of 0ms pushes execution after current stack
+      }, 0);
     } else if (data.user && data.session) {
-      // This case might happen if auto-confirm is somehow enabled.
-      console.warn("User signed up and received a session immediately - check Supabase email confirmation settings.");
-      Toast.show({ type: 'success', text1: 'Registration Successful!', text2: 'You are now signed in.' });
+      console.warn(
+        "User registered and received session immediately. Check Supabase 'Email Auto Confirmation' setting."
+      );
+      Toast.show({
+        type: 'success',
+        text1: 'Registration Successful!',
+        text2: 'You are now signed in.',
+      });
       clearForm();
-      // Let the Auth listener in App.js handle navigation into the main app
-    }
-    else {
-      // Handle unexpected cases
-      Toast.show({ type: 'error', text1: 'Registration Issue', text2: 'An unexpected issue occurred.' });
+    } else {
+      console.error('Registration: Unexpected response', data);
+      Toast.show({
+        type: 'error',
+        text1: 'Registration Issue',
+        text2: 'An unexpected issue occurred.',
+      });
     }
   };
 
   const navigateToSignIn = () => {
     clearForm();
-    navigation.navigate('Signin'); // Go to Signin in default (password) mode
+    navigation.navigate('Signin');
   };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Background elements */}
+      {/* Background */}
       <View style={styles.background}>
         <View style={[styles.c1, { opacity: 0.7 }]} />
         <View style={[styles.pinkCircle, { opacity: 0.7 }]} />
         <View style={[styles.c2, { opacity: 0.7 }]} />
       </View>
-      {/* Scrollable Form Area */}
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+      >
         <BlurView intensity={80} tint="light" style={styles.blurView}>
           <Typo size={26} style={styles.text}>
             Hello There!
@@ -140,40 +172,90 @@ function RegisterScreen(props) {
 
           {/* Form Inputs */}
           <View style={styles.inputView}>
-            <TextInput value={name} onChangeText={setName} placeholder="Enter name" placeholderTextColor="grey" style={styles.input} autoCapitalize="words" />
+            <TextInput
+              value={name}
+              onChangeText={setName}
+              placeholder="Enter name"
+              placeholderTextColor="grey"
+              style={styles.input}
+              autoCapitalize="words"
+            />
           </View>
+
           <View style={styles.inputView}>
-            <TextInput value={email} onChangeText={setEmail} placeholder="Enter email" placeholderTextColor="grey" style={styles.input} autoCapitalize="none" keyboardType="email-address" />
+            <TextInput
+              value={email}
+              onChangeText={setEmail}
+              placeholder="Enter email"
+              placeholderTextColor="grey"
+              style={styles.input}
+              autoCapitalize="none"
+              keyboardType="email-address"
+            />
           </View>
+
           <View style={styles.inputView}>
-            <TextInput value={phone} onChangeText={setPhone} placeholder="Enter mobile number" placeholderTextColor="grey" style={styles.input} keyboardType="phone-pad" />
+            <TextInput
+              value={phone}
+              onChangeText={setPhone}
+              placeholder="Enter mobile number"
+              placeholderTextColor="grey"
+              style={styles.input}
+              keyboardType="phone-pad"
+            />
           </View>
+
           <View style={styles.inputView}>
-            <TextInput value={password} onChangeText={setPassword} placeholder="Password (min 6 chars)" placeholderTextColor="grey" style={styles.passwordInput} secureTextEntry={isSecure} />
-            <TouchableOpacity onPress={() => setIsSecure(!isSecure)} style={styles.eyeIcon}>
-              <Octicons name={isSecure ? "eye-closed" : "eye"} size={20} color="grey" />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.inputView}>
-            <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder="Confirm Password" placeholderTextColor="grey" style={styles.passwordInput} secureTextEntry={isConfirmSecure} />
-            <TouchableOpacity onPress={() => setIsConfirmSecure(!isConfirmSecure)} style={styles.eyeIcon}>
-              <Octicons name={isConfirmSecure ? "eye-closed" : "eye"} size={20} color="grey" />
+            <TextInput
+              value={password}
+              onChangeText={setPassword}
+              placeholder="Password (min 6 chars)"
+              placeholderTextColor="grey"
+              style={styles.passwordInput}
+              secureTextEntry={isSecure}
+            />
+            <TouchableOpacity
+              onPress={() => setIsSecure(!isSecure)}
+              style={styles.eyeIcon}
+            >
+              <Octicons
+                name={isSecure ? 'eye-closed' : 'eye'}
+                size={20}
+                color="grey"
+              />
             </TouchableOpacity>
           </View>
 
-          {/* Register Button */}
+          <View style={styles.inputView}>
+            <TextInput
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm Password"
+              placeholderTextColor="grey"
+              style={styles.passwordInput}
+              secureTextEntry={isConfirmSecure}
+            />
+            <TouchableOpacity
+              onPress={() => setIsConfirmSecure(!isConfirmSecure)}
+              style={styles.eyeIcon}
+            >
+              <Octicons
+                name={isConfirmSecure ? 'eye-closed' : 'eye'}
+                size={20}
+                color="grey"
+              />
+            </TouchableOpacity>
+          </View>
+
           <AppButton
             onPress={handleRegister}
             label={loading ? 'Registering...' : 'Register'}
-            loading={loading} // Pass loading state to AppButton if enhanced
+            loading={loading}
             disabled={loading}
             style={styles.registerButton}
           />
 
-          {/* Sign In Link */}
-          <TouchableOpacity
-            style={styles.bottomText}
-            onPress={navigateToSignIn}>
+          <TouchableOpacity style={styles.bottomText} onPress={navigateToSignIn}>
             <Typo>Already a member?</Typo>
             <Typo style={{ color: colors.blue }}> Signin</Typo>
           </TouchableOpacity>
@@ -187,59 +269,108 @@ function RegisterScreen(props) {
 const styles = StyleSheet.create({
   container: { flex: 1 },
   scrollContainer: {
-    flexGrow: 1, // Allows content to take height if needed
-    justifyContent: 'center', // Center content vertically if screen is tall
+    flexGrow: 1,
+    justifyContent: 'center',
   },
-  blurView: { // Apply blur styling here
+  blurView: {
     paddingHorizontal: spacingX._20,
-    paddingTop: paddingTop * 0.5, // Adjust padding inside scroll
-    paddingBottom: spacingY._40, // Ensure space at the bottom
+    paddingTop: paddingTop * 0.5,
+    paddingBottom: spacingY._40,
     borderRadius: radius._20,
-    marginHorizontal: spacingX._15, // Add margin to see background effect
+    marginHorizontal: spacingX._15,
     marginVertical: spacingY._10,
     overflow: 'hidden',
   },
   background: {
-    flex: 1, ...StyleSheet.absoluteFillObject, backgroundColor: colors.white // Optional: set a base background
+    flex: 1,
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: colors.white,
   },
   inputView: {
-    backgroundColor: '#ffffffaa', borderRadius: radius._15, marginTop: spacingY._15,
-    shadowColor: colors.lightPink, shadowOffset: { height: 1, width: 0 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 2, // Softer shadow
-    flexDirection: 'row', alignItems: 'center', paddingRight: spacingX._5, // Reduced padding for icon
-    borderWidth: Platform.OS === 'android' ? 0.5 : 0, // Hairline border for Android
+    backgroundColor: '#ffffffaa',
+    borderRadius: radius._15,
+    marginTop: spacingY._15,
+    shadowColor: colors.lightPink,
+    shadowOffset: { height: 1, width: 0 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: spacingX._5,
+    borderWidth: Platform.OS === 'android' ? 0.5 : 0,
     borderColor: '#0000001A',
   },
   input: {
-    paddingVertical: spacingY._10, // <-- FIX: Reduced vertical padding
+    paddingVertical: spacingY._10,
     paddingHorizontal: spacingX._20,
-    fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55, // Fixed height
+    fontSize: normalizeY(16),
+    flex: 1,
+    color: colors.black,
+    height: 55,
   },
   passwordInput: {
-    paddingVertical: spacingY._10, // <-- FIX: Reduced vertical padding
+    paddingVertical: spacingY._10,
     paddingHorizontal: spacingX._20,
-    fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55, // Fixed height
+    fontSize: normalizeY(16),
+    flex: 1,
+    color: colors.black,
+    height: 55,
   },
   eyeIcon: {
     paddingHorizontal: spacingX._15,
   },
   text: {
-    fontWeight: '600', textAlign: 'center', alignSelf: 'center', marginTop: spacingY._20, // Adjusted top margin
+    fontWeight: '600',
+    textAlign: 'center',
+    alignSelf: 'center',
+    marginTop: spacingY._20,
     marginBottom: spacingY._5,
   },
   body: {
-    textAlign: 'center', alignSelf: 'center', marginVertical: spacingY._10, color: colors.gray,
+    textAlign: 'center',
+    alignSelf: 'center',
+    marginVertical: spacingY._10,
+    color: colors.gray,
   },
   registerButton: {
-    backgroundColor: colors.primary, borderRadius: radius._12, marginTop: spacingY._25, // Reduced top margin
+    backgroundColor: colors.primary,
+    borderRadius: radius._12,
+    marginTop: spacingY._25,
   },
   bottomText: {
-    flexDirection: 'row', alignItems: 'center', alignSelf: 'center', gap: spacingX._5,
-    marginTop: spacingY._25, // Increased margin
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    gap: spacingX._5,
+    marginTop: spacingY._25,
   },
-  // Background circles - adjusted for better visuals
-  c1: { width: width, height: width / 1.8, borderRadius: width / 2, backgroundColor: colors.lightBlue + '50', position: 'absolute', top: '-10%', right: '-30%' },
-  c2: { height: normalizeY(150), backgroundColor: colors.lightPink + '50', width: '100%', position: 'absolute', bottom: 0, left: 0 },
-  pinkCircle: { width: width / 1.6, height: width / 1.6, borderRadius: width / 2, backgroundColor: colors.lightPink + '50', position: 'absolute', top: '5%', left: '-25%' },
+  c1: {
+    width: width,
+    height: width / 1.8,
+    borderRadius: width / 2,
+    backgroundColor: colors.lightBlue + '50',
+    position: 'absolute',
+    top: '-10%',
+    right: '-30%',
+  },
+  c2: {
+    height: normalizeY(150),
+    backgroundColor: colors.lightPink + '50',
+    width: '100%',
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+  },
+  pinkCircle: {
+    width: width / 1.6,
+    height: width / 1.6,
+    borderRadius: width / 2,
+    backgroundColor: colors.lightPink + '50',
+    position: 'absolute',
+    top: '5%',
+    left: '-25%',
+  },
 });
 
 export default RegisterScreen;

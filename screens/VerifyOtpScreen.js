@@ -22,84 +22,98 @@ import { normalizeY } from '../utils/normalize'; // Adjust path
 import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('screen');
-let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
+let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10; //
 
 // Define OTP types
 export const OtpType = {
-    SIGNUP: 'signup',
-    PASSWORD_RESET: 'email',
+    SIGNUP: 'signup', //
+    PASSWORD_RESET: 'email', // Type used when *requesting* reset OTP via signInWithOtp
 };
 
 function VerifyOtpScreen() {
     const navigation = useNavigation();
     const route = useRoute();
     // Get parameters passed during navigation
-    const { email, otpType, nextScreen } = route.params || {};
+    const { email, otpType, nextScreen } = route.params || {}; //
 
     console.log("VerifyOtpScreen Params Received:", route.params);
 
+    // Basic validation for required params
     if (!email || !otpType) {
         console.error("VerifyOtpScreen requires 'email' and 'otpType' parameters.");
         useEffect(() => {
             Toast.show({ type: 'error', text1: 'Error', text2: 'Missing required information.' });
-            if (navigation.canGoBack()) navigation.goBack();
+            if (navigation.canGoBack()) navigation.goBack(); //
         }, []);
-        return null;
+        return null; // Render nothing if params are missing
     }
 
-    const [otp, setOtp] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [resendLoading, setResendLoading] = useState(false);
+    const [otp, setOtp] = useState(''); //
+    const [loading, setLoading] = useState(false); //
+    const [resendLoading, setResendLoading] = useState(false); //
 
-    const isSignupOtp = otpType === OtpType.SIGNUP;
-    const title = isSignupOtp ? 'Verify Your Email' : 'Enter Password Reset Code';
-    const description = `Enter the 6-digit code sent to ${email}.`;
+    const isSignupOtp = otpType === OtpType.SIGNUP; //
+    const title = isSignupOtp ? 'Verify Your Email' : 'Enter Password Reset Code'; //
+    const description = `Enter the 6-digit code sent to ${email}.`; //
 
     // --- Verify OTP ---
     const handleVerifyOtp = async () => {
-        if (!otp || otp.length !== 6) {
-            Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter the 6-digit OTP.' });
+        if (!otp || otp.length !== 6) { //
+            Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter the 6-digit OTP.' }); //
             return;
         }
-        setLoading(true); // Start loading
-        console.log(`VerifyOtpScreen: Verifying OTP (${otp}) for type: ${otpType}`);
+        setLoading(true);
+        console.log(`VerifyOtpScreen: Verifying OTP (${otp}) for user: ${email}, type from params: ${otpType}`);
 
         try {
-            const { data, error } = await supabase.auth.verifyOtp({
+            // *** FIX: Determine the correct 'type' for Supabase verifyOtp ***
+            // For password reset flow initiated by signInWithOtp({ type: 'email' }),
+            // the verification step requires type 'recovery'.
+            const verifyType = otpType === OtpType.PASSWORD_RESET ? 'recovery' : otpType; // Use 'recovery' for password reset
+            console.log(`VerifyOtpScreen: Using verify type: ${verifyType}`);
+
+            const { data, error } = await supabase.auth.verifyOtp({ //
                 email: email,
                 token: otp,
-                type: otpType,
+                type: verifyType, // Pass the determined type
             });
+
+            console.log("VerifyOtpScreen: Verification Response:", { data: data ? 'Exists' : 'Null', error });
 
             if (error) {
                 console.error("VerifyOtpScreen: OTP Verification Error:", error);
-                Toast.show({ type: 'error', text1: 'OTP Verification Failed', text2: error.message });
-            } else if (data.session) {
-                console.log("VerifyOtpScreen: OTP Verification Successful, Session:", data.session ? 'Exists' : 'Null');
-                if (isSignupOtp) {
-                    console.log("VerifyOtpScreen: Signup OTP success - Relying on App.js listener.");
-                    Toast.show({ type: 'success', text1: 'Email Verified!', text2: 'Sign in successful.' });
-                    // App.js listener will handle navigation change
-                } else if (nextScreen) { // Password reset successful
-                    console.log("VerifyOtpScreen: Password Reset OTP success - Attempting navigation SYNCHRONOUSLY to:", nextScreen);
-                    Toast.show({ type: 'success', text1: 'OTP Verified', text2: 'You can now set a new password.' });
-                    // *** FIX: Navigate immediately WITHOUT setTimeout ***
-                    navigation.navigate(nextScreen, { email: email });
-                    console.log("VerifyOtpScreen: Navigation attempted synchronously.");
-                } else {
-                    console.error("VerifyOtpScreen: Password reset OTP verified but 'nextScreen' parameter is missing.");
-                    Toast.show({ type: 'error', text1: 'Error', text2: 'Navigation configuration error.' });
-                }
+                Toast.show({ type: 'error', text1: 'OTP Verification Failed', text2: error.message }); //
             } else {
-                console.log("VerifyOtpScreen: OTP Verification - No session returned, but no error?");
-                Toast.show({ type: 'error', text1: 'Verification Issue', text2: 'Could not verify OTP. Please try again or resend.' });
+                // Verification successful (no error)
+                console.log("VerifyOtpScreen: OTP Verification Successful.");
+
+                if (isSignupOtp) {
+                    // Sign up verification successful, user's email_confirmed_at is set.
+                    // The onAuthStateChange listener in App.js will now see the confirmed user
+                    // and allow navigation into the main app.
+                    console.log("VerifyOtpScreen: Signup OTP success - User email confirmed.");
+                    Toast.show({ type: 'success', text1: 'Email Verified!', text2: 'Sign in successful.' }); //
+                    // No explicit navigation needed here; App.js handles it.
+                } else if (otpType === OtpType.PASSWORD_RESET && nextScreen) {
+                    // Password reset OTP successful. User is temporarily authenticated to allow password update.
+                    console.log("VerifyOtpScreen: Password Reset OTP success - Navigating to:", nextScreen);
+                    Toast.show({ type: 'success', text1: 'OTP Verified', text2: 'You can now set a new password.' }); //
+                    // *** Navigate immediately to the next screen (SetNewPasswordScreen) ***
+                    navigation.navigate(nextScreen, { email: email }); //
+                } else if (otpType === OtpType.PASSWORD_RESET && !nextScreen) {
+                    console.error("VerifyOtpScreen: Password reset OTP verified but 'nextScreen' parameter is missing.");
+                    Toast.show({ type: 'error', text1: 'Error', text2: 'Navigation configuration error.' }); //
+                    navigation.navigate('Signin'); // Fallback
+                } else {
+                    console.log("VerifyOtpScreen: OTP verified for an unspecified purpose.");
+                    navigation.navigate('Signin'); // Fallback
+                }
             }
         } catch (verificationError) {
-            console.error("VerifyOtpScreen: Caught error during verification/navigation block:", verificationError);
-            Toast.show({ type: 'error', text1: 'Error', text2: 'An unexpected error occurred.' });
+            console.error("VerifyOtpScreen: Caught error during verification block:", verificationError);
+            Toast.show({ type: 'error', text1: 'Error', text2: 'An unexpected error occurred.' }); //
         } finally {
-            // *** Ensure loading is always stopped ***
-            setLoading(false);
+            setLoading(false); // Ensure loading is always stopped
             console.log("VerifyOtpScreen: handleVerifyOtp finished.");
         }
     };
@@ -109,62 +123,93 @@ function VerifyOtpScreen() {
     const handleResendOtp = async () => {
         if (!email) return;
         setResendLoading(true);
-        console.log(`VerifyOtpScreen: Resending OTP for type: ${otpType}`);
+        console.log(`VerifyOtpScreen: Resending OTP for type: ${otpType} to email: ${email}`);
         let error = null;
+        let data = null; // To capture response data for logging
+
         if (isSignupOtp) {
-            ({ error } = await supabase.auth.resend({ type: 'signup', email: email }));
-        } else {
-            ({ error } = await supabase.auth.signInWithOtp({
-                email: email, options: { shouldCreateUser: false }
+            // For signup verification, use the resend endpoint.
+            ({ data, error } = await supabase.auth.resend({ //
+                type: 'signup',
+                email: email,
             }));
+            console.log("VerifyOtpScreen: Resend Signup OTP Response:", { data: data ? 'Exists' : 'Null', error });
+        } else if (otpType === OtpType.PASSWORD_RESET) {
+            // For password reset, use resetPasswordForEmail.
+            // Note: By default this sends a LINK. If you need OTP, ensure your email template sends one.
+            // OR use signInWithOtp if your setup uses that for password reset OTPs.
+            ({ data, error } = await supabase.auth.resetPasswordForEmail(email)); // Sends link by default
+            // If using signInWithOtp for password reset OTPs instead:
+            // ({ data, error } = await supabase.auth.signInWithOtp({
+            //    email: email,
+            //    options: { shouldCreateUser: false } // Important!
+            // }));
+            console.log("VerifyOtpScreen: Resend Password Reset Request Response:", { data: data ? 'Exists' : 'Null', error });
+        } else {
+            console.warn("VerifyOtpScreen: Unknown otpType for resend:", otpType);
         }
+
         setResendLoading(false);
         if (error) {
             console.error("VerifyOtpScreen: Resend OTP Error:", error);
-            Toast.show({ type: 'error', text1: 'Error Resending OTP', text2: error.message });
+            Toast.show({ type: 'error', text1: 'Error Resending Code', text2: error.message }); //
         } else {
-            console.log("VerifyOtpScreen: Resend OTP Success.");
-            Toast.show({ type: 'success', text1: 'OTP Resent', text2: 'Check your email for a new OTP.' });
+            console.log("VerifyOtpScreen: Resend Request Success.");
+            Toast.show({ type: 'success', text1: 'Request Sent', text2: 'Check your email for instructions or a new code.' }); //
         }
     };
 
     // --- Render ---
     return (
         <SafeAreaView style={styles.container}>
+            {/* Background */}
             <View style={styles.background}>
                 <View style={[styles.c1, { opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { bottom: '25%', left: '5%', opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
                 <View style={styles.c2} />
             </View>
+
+            {/* Scrollable Content */}
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+                    {/* Main Content Area */}
                     <View style={styles.contentView}>
                         <Typo size={26} style={styles.text}>{title}</Typo>
                         <Typo size={16} style={styles.body}>{description}</Typo>
+
+                        {/* OTP Input */}
                         <View style={styles.inputView}>
                             <TextInput
-                                value={otp} onChangeText={setOtp}
+                                value={otp} onChangeText={setOtp} //
                                 placeholder="Enter 6-digit OTP" placeholderTextColor="grey"
                                 style={styles.input} autoCapitalize="none"
-                                keyboardType="number-pad" maxLength={6} testID="otpInput"
+                                keyboardType="number-pad" maxLength={6} testID="otpInput" //
                             />
                         </View>
+
+                        {/* Verify Button */}
                         <AppButton
-                            onPress={handleVerifyOtp}
+                            onPress={handleVerifyOtp} //
                             label={loading ? 'Verifying...' : 'Verify Code'}
-                            loading={loading} disabled={loading || resendLoading}
+                            loading={loading} disabled={loading || resendLoading} //
                             style={styles.actionButton}
                         />
+
+                        {/* Resend Link */}
                         <TouchableOpacity style={styles.linkButton} onPress={handleResendOtp} disabled={loading || resendLoading}>
-                            <Typo style={{ color: colors.gray }}>{resendLoading ? 'Resending...' : 'Resend OTP'}</Typo>
+                            <Typo style={{ color: colors.gray }}>{resendLoading ? 'Sending...' : 'Resend Code'}</Typo>
                         </TouchableOpacity>
+
+                        {/* Different Email Link (only for password reset) */}
                         {!isSignupOtp && (
                             <TouchableOpacity style={styles.linkButton} onPress={() => navigation.canGoBack() && navigation.goBack()}>
-                                <Typo style={{ color: colors.blue }}>Enter different email?</Typo>
+                                <Typo style={{ color: colors.blue }}>Entered wrong email?</Typo>
                             </TouchableOpacity>
                         )}
                     </View>
+
+                    {/* Back to Sign In Link */}
                     {!loading && !resendLoading && (
                         <TouchableOpacity
                             style={styles.bottomText}
@@ -179,7 +224,7 @@ function VerifyOtpScreen() {
 }
 
 // --- Styles ---
-// ... (Keep styles from previous version - no changes needed) ...
+// Styles remain unchanged
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {

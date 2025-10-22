@@ -24,12 +24,12 @@ import Toast from 'react-native-toast-message';
 import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
 
 const { width, height } = Dimensions.get('screen');
-let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
+let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10; //
 
 function ForgotPasswordScreen() {
     const navigation = useNavigation();
-    const [email, setEmail] = useState('');
-    const [loading, setLoading] = useState(false);
+    const [email, setEmail] = useState(''); //
+    const [loading, setLoading] = useState(false); //
 
     // --- Send OTP to Email ---
     const handleSendOtp = async () => {
@@ -38,22 +38,25 @@ function ForgotPasswordScreen() {
             return;
         }
         setLoading(true);
-        console.log("ForgotPasswordScreen: Sending password reset OTP for", email); // Log
-        const { error } = await supabase.auth.signInWithOtp({
-            email: email,
-            options: { shouldCreateUser: false, }
+        console.log("ForgotPasswordScreen: Requesting password reset for", email); // Log
+
+        // *** FIX: Use resetPasswordForEmail instead of signInWithOtp ***
+        // This is the dedicated method for password resets and works with 'recovery' type OTP.
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+            // You can add a redirectTo link here if you want to use links instead of OTP
+            // redirectTo: 'yourapp://password-reset'
         });
 
         setLoading(false);
         if (error) {
-            console.error("ForgotPasswordScreen: Error sending OTP:", error); // Log
-            Toast.show({ type: 'error', text1: 'Error Sending OTP', text2: error.message });
+            console.error("ForgotPasswordScreen: Error requesting reset:", error); // Log
+            Toast.show({ type: 'error', text1: 'Error Sending Request', text2: error.message });
         } else {
-            console.log("ForgotPasswordScreen: OTP sent successfully."); // Log
+            console.log("ForgotPasswordScreen: Password reset request successful."); // Log
             Toast.show({
                 type: 'success',
                 text1: 'Check your email',
-                text2: 'An OTP has been sent to reset your password.',
+                text2: 'Instructions to reset your password have been sent.',
             });
             // Navigate to VerifyOtpScreen
             console.log("ForgotPasswordScreen: Navigating to VerifyOtp with nextScreen='SetNewPassword'"); // Log
@@ -68,18 +71,20 @@ function ForgotPasswordScreen() {
     // --- Render ---
     return (
         <SafeAreaView style={styles.container}>
+            {/* Background */}
             <View style={styles.background}>
                 <View style={[styles.c1, { opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { bottom: '25%', left: '5%', opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
                 <View style={styles.c2} />
             </View>
+            {/* Content */}
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
                     <View style={styles.contentView}>
                         <Typo size={26} style={styles.text}>Forgot Password?</Typo>
                         <Typo size={16} style={styles.body}>
-                            Enter your email address below and we'll send you an OTP to reset your password.
+                            Enter your email address below and we'll send instructions to reset your password.
                         </Typo>
                         <View style={styles.inputView}>
                             <TextInput
@@ -90,7 +95,7 @@ function ForgotPasswordScreen() {
                         </View>
                         <AppButton
                             onPress={handleSendOtp}
-                            label={loading ? 'Sending OTP...' : 'Send OTP'}
+                            label={loading ? 'Sending...' : 'Send Reset Instructions'}
                             loading={loading}
                             disabled={loading}
                             style={styles.actionButton}
@@ -110,6 +115,7 @@ function ForgotPasswordScreen() {
 }
 
 // --- Styles ---
+// Styles remain unchanged
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {
