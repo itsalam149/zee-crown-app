@@ -46,7 +46,8 @@ const categories = [
         image: require('../assets/33.png')
     },
     {
-        name: "Crown Perfumes",
+        name: "perfumes", // 👈 internal category key
+        displayName: "Crown Perfumes", // 👈 what you want shown
         phrase: "Luxury Fragrances",
         description: "Captivate with every breath",
         colors: ['#F59E0B', '#FBBF24', '#FCD34D'],
@@ -55,6 +56,7 @@ const categories = [
         image: require('../assets/44.png')
     }
 ];
+
 
 export default function CategoryScreen() {
     const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -270,12 +272,10 @@ export default function CategoryScreen() {
 
                         <View style={styles.cardContent}>
                             <View style={styles.textSection}>
-                                <Text
-                                    style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}
-                                    numberOfLines={2}
-                                >
-                                    {item.name}
+                                <Text style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}>
+                                    {item.displayName || item.name}
                                 </Text>
+
                                 {!!item.phrase && (
                                     <Text
                                         style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]}
