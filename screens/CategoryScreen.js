@@ -1,3 +1,4 @@
+// screens/CategoryScreen.js
 import React, { useRef, useEffect, useContext } from 'react';
 import {
     View,
@@ -13,10 +14,12 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import AuthContext from '../auth/AuthContext';
+import AuthContext from '../auth/AuthContext'; // Adjust path if needed
+import { useNavigation } from '@react-navigation/native'; // <-- Import useNavigation
 
 const { width } = Dimensions.get('window');
 
+// Assuming these assets are correctly placed relative to this file
 const categories = [
     {
         name: "medicine",
@@ -25,7 +28,7 @@ const categories = [
         colors: ['#10B981', '#34D399', '#6EE7B7'],
         darkColor: '#059669',
         icon: "💊",
-        image: require('../assets/11.png')
+        image: require('../assets/11.png') // Adjust path if needed
     },
     {
         name: "cosmetics",
@@ -34,7 +37,7 @@ const categories = [
         colors: ['#3B82F6', '#60A5FA', '#93C5FD'],
         darkColor: '#2563EB',
         icon: "💅",
-        image: require('../assets/22.png')
+        image: require('../assets/22.png') // Adjust path if needed
     },
     {
         name: "food",
@@ -43,7 +46,7 @@ const categories = [
         colors: ['#EF4444', '#F87171', '#FCA5A5'],
         darkColor: '#DC2626',
         icon: "🍔",
-        image: require('../assets/33.png')
+        image: require('../assets/33.png') // Adjust path if needed
     },
     {
         name: "perfumes", // 👈 internal category key
@@ -53,7 +56,7 @@ const categories = [
         colors: ['#F59E0B', '#FBBF24', '#FCD34D'],
         darkColor: '#D97706',
         icon: "💨",
-        image: require('../assets/44.png')
+        image: require('../assets/44.png') // Adjust path if needed
     }
 ];
 
@@ -65,6 +68,7 @@ export default function CategoryScreen() {
     const logoRotate = useRef(new Animated.Value(0)).current;
     const floatAnim = useRef(new Animated.Value(0)).current;
     const { setCategory } = useContext(AuthContext);
+    const navigation = useNavigation(); // <-- Get navigation object
 
     useEffect(() => {
         Animated.parallel([
@@ -119,9 +123,15 @@ export default function CategoryScreen() {
         ).start();
     }, []);
 
+    // *** MODIFIED FUNCTION ***
     const handleCategoryPress = (item) => {
-        setCategory(item.name);
+        setCategory(item.name); // Update the category context
+        // Use setTimeout to ensure state update potentially finishes before navigating
+        setTimeout(() => {
+            navigation.navigate('AppNavigator'); // Navigate to the main app flow
+        }, 0); // A timeout of 0ms pushes this to the next event loop tick
     };
+    // *************************
 
     const CategoryCard = ({ item, index }) => {
         const cardAnim = useRef(new Animated.Value(0)).current;
@@ -137,68 +147,33 @@ export default function CategoryScreen() {
                 useNativeDriver: true,
             }).start();
 
-            // Shimmer effect
             Animated.loop(
                 Animated.sequence([
-                    Animated.timing(shimmerAnim, {
-                        toValue: 1,
-                        duration: 2500,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(shimmerAnim, {
-                        toValue: 0,
-                        duration: 2500,
-                        useNativeDriver: true,
-                    }),
+                    Animated.timing(shimmerAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
+                    Animated.timing(shimmerAnim, { toValue: 0, duration: 2500, useNativeDriver: true }),
                 ])
             ).start();
 
-            // Glow pulse effect
             Animated.loop(
                 Animated.sequence([
-                    Animated.timing(glowAnim, {
-                        toValue: 1,
-                        duration: 2000,
-                        useNativeDriver: true,
-                    }),
-                    Animated.timing(glowAnim, {
-                        toValue: 0,
-                        duration: 2000,
-                        useNativeDriver: true,
-                    }),
+                    Animated.timing(glowAnim, { toValue: 1, duration: 2000, useNativeDriver: true }),
+                    Animated.timing(glowAnim, { toValue: 0, duration: 2000, useNativeDriver: true }),
                 ])
             ).start();
         }, []);
 
         const handlePressIn = () => {
-            Animated.spring(pressAnim, {
-                toValue: 0.96,
-                useNativeDriver: true,
-                tension: 100,
-                friction: 7
-            }).start();
+            Animated.spring(pressAnim, { toValue: 0.96, useNativeDriver: true, tension: 100, friction: 7 }).start();
         };
 
         const handlePressOut = () => {
-            Animated.spring(pressAnim, {
-                toValue: 1,
-                useNativeDriver: true,
-                tension: 100,
-                friction: 7
-            }).start();
+            Animated.spring(pressAnim, { toValue: 1, useNativeDriver: true, tension: 100, friction: 7 }).start();
         };
 
         const isLargeCard = index < 2;
 
-        const shimmerTranslate = shimmerAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [-300, 300],
-        });
-
-        const glowOpacity = glowAnim.interpolate({
-            inputRange: [0, 1],
-            outputRange: [0.3, 0.7],
-        });
+        const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [-300, 300] });
+        const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
 
         return (
             <Animated.View
@@ -207,172 +182,68 @@ export default function CategoryScreen() {
                     {
                         opacity: cardAnim,
                         transform: [
-                            {
-                                translateY: cardAnim.interpolate({
-                                    inputRange: [0, 1],
-                                    outputRange: [50, 0]
-                                })
-                            },
-                            {
-                                scale: Animated.multiply(cardAnim, pressAnim)
-                            }
+                            { translateY: cardAnim.interpolate({ inputRange: [0, 1], outputRange: [50, 0] }) },
+                            { scale: Animated.multiply(cardAnim, pressAnim) }
                         ],
                     },
                 ]}
             >
                 <TouchableOpacity
                     style={styles.card}
-                    onPress={() => handleCategoryPress(item)}
+                    onPress={() => handleCategoryPress(item)} // Pass item to handler
                     onPressIn={handlePressIn}
                     onPressOut={handlePressOut}
                     activeOpacity={1}
                 >
-                    {/* Outer glow effect */}
                     <Animated.View style={[styles.cardGlow, { opacity: glowOpacity }]}>
-                        <LinearGradient
-                            colors={[...item.colors, 'transparent']}
-                            style={StyleSheet.absoluteFill}
-                            start={{ x: 0.5, y: 0 }}
-                            end={{ x: 0.5, y: 1 }}
-                        />
+                        <LinearGradient colors={[...item.colors, 'transparent']} style={StyleSheet.absoluteFill} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} />
                     </Animated.View>
-
                     <LinearGradient
                         colors={item.colors}
                         style={[styles.gradient, isLargeCard ? styles.largeGradient : styles.smallGradient]}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
+                        start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}
                     >
-                        {/* Enhanced background pattern overlay */}
                         <View style={styles.patternOverlay}>
-                            <View style={styles.patternDot} />
-                            <View style={[styles.patternDot, { top: 30, left: 50, width: 50, height: 50 }]} />
-                            <View style={[styles.patternDot, { top: 60, left: 20, width: 30, height: 30 }]} />
-                            <View style={[styles.patternDot, { bottom: 20, right: 30, width: 45, height: 45 }]} />
-                            <View style={[styles.patternDot, { top: '40%', right: 10, width: 35, height: 35 }]} />
+                            <View style={styles.patternDot} /><View style={[styles.patternDot, { top: 30, left: 50, width: 50, height: 50 }]} /><View style={[styles.patternDot, { top: 60, left: 20, width: 30, height: 30 }]} /><View style={[styles.patternDot, { bottom: 20, right: 30, width: 45, height: 45 }]} /><View style={[styles.patternDot, { top: '40%', right: 10, width: 35, height: 35 }]} />
                         </View>
-
-                        {/* Diagonal stripes pattern */}
                         <View style={styles.stripesPattern}>
-                            <View style={styles.stripe} />
-                            <View style={[styles.stripe, { left: 60 }]} />
-                            <View style={[styles.stripe, { left: 120 }]} />
-                            <View style={[styles.stripe, { left: 180 }]} />
+                            <View style={styles.stripe} /><View style={[styles.stripe, { left: 60 }]} /><View style={[styles.stripe, { left: 120 }]} /><View style={[styles.stripe, { left: 180 }]} />
                         </View>
-
-                        {/* Enhanced shimmer effect */}
-                        <Animated.View
-                            style={[
-                                styles.shimmer,
-                                {
-                                    transform: [{ translateX: shimmerTranslate }],
-                                },
-                            ]}
-                        />
-
+                        <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
                         <View style={styles.cardContent}>
                             <View style={styles.textSection}>
-                                <Text style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}>
-                                    {item.displayName || item.name}
-                                </Text>
-
-                                {!!item.phrase && (
-                                    <Text
-                                        style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]}
-                                        numberOfLines={1}
-                                        ellipsizeMode="tail"
-                                    >
-                                        {item.phrase}
-                                    </Text>
-                                )}
-                                <View style={styles.arrowButton}>
-                                    <Text style={styles.arrowText}>→</Text>
-                                </View>
+                                <Text style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}>{item.displayName || item.name}</Text>
+                                {!!item.phrase && (<Text style={[styles.categoryPhrase, isLargeCard && styles.largeCategoryPhrase]} numberOfLines={1} ellipsizeMode="tail">{item.phrase}</Text>)}
+                                <View style={styles.arrowButton}><Text style={styles.arrowText}>→</Text></View>
                             </View>
                             <View style={styles.imageSection}>
-                                <View style={styles.imageGlow}>
-                                    <Image
-                                        source={item.image}
-                                        style={[styles.productImage, isLargeCard && styles.largeProductImage]}
-                                        resizeMode="contain"
-                                    />
-                                </View>
+                                <View style={styles.imageGlow}><Image source={item.image} style={[styles.productImage, isLargeCard && styles.largeProductImage]} resizeMode="contain" /></View>
                             </View>
                         </View>
-                        <LinearGradient
-                            colors={['transparent', 'rgba(0,0,0,0.15)']}
-                            style={styles.taglineContainer}
-                        >
-                            <Text style={styles.taglineText}>{item.description}</Text>
-                        </LinearGradient>
+                        <LinearGradient colors={['transparent', 'rgba(0,0,0,0.15)']} style={styles.taglineContainer}><Text style={styles.taglineText}>{item.description}</Text></LinearGradient>
                     </LinearGradient>
                 </TouchableOpacity>
             </Animated.View>
         );
     };
 
-    const logoRotateInterpolate = logoRotate.interpolate({
-        inputRange: [0, 1],
-        outputRange: ['-5deg', '5deg'],
-    });
-
-    const floatTranslate = floatAnim.interpolate({
-        inputRange: [0, 1],
-        outputRange: [0, -8],
-    });
+    const logoRotateInterpolate = logoRotate.interpolate({ inputRange: [0, 1], outputRange: ['-5deg', '5deg'] });
+    const floatTranslate = floatAnim.interpolate({ inputRange: [0, 1], outputRange: [0, -8] });
 
     return (
         <SafeAreaView style={styles.safeArea} edges={['top']}>
             <View style={styles.container}>
-                <StatusBar
-                    barStyle="light-content"
-                    backgroundColor="#6366F1"
-                    translucent={Platform.OS === 'android'}
-                />
-
-                <LinearGradient
-                    colors={['#6366F1', '#7C3AED', '#8B5CF6']}
-                    style={styles.header}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                >
-                    {/* Decorative circles */}
-                    <View style={styles.decorativeCircle1} />
-                    <View style={styles.decorativeCircle2} />
-                    <View style={styles.decorativeCircle3} />
-                    <View style={styles.decorativeCircle4} />
-                    <View style={styles.decorativeCircle5} />
-
-                    <Animated.View style={[
-                        styles.headerContent,
-                        {
-                            opacity: fadeAnim,
-                            transform: [{ translateY: slideAnim }]
-                        }
-                    ]}>
+                <StatusBar barStyle="light-content" backgroundColor="#6366F1" translucent={Platform.OS === 'android'} />
+                <LinearGradient colors={['#6366F1', '#7C3AED', '#8B5CF6']} style={styles.header} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
+                    <View style={styles.decorativeCircle1} /><View style={styles.decorativeCircle2} /><View style={styles.decorativeCircle3} /><View style={styles.decorativeCircle4} /><View style={styles.decorativeCircle5} />
+                    <Animated.View style={[styles.headerContent, { opacity: fadeAnim, transform: [{ translateY: slideAnim }] }]}>
                         <View style={styles.headerRow}>
-                            <Animated.View
-                                style={[
-                                    styles.logoContainer,
-                                    {
-                                        transform: [
-                                            { scale: logoScale },
-                                            { rotate: logoRotateInterpolate },
-                                            { translateY: floatTranslate }
-                                        ],
-                                    },
-                                ]}
-                            >
+                            <Animated.View style={[styles.logoContainer, { transform: [{ scale: logoScale }, { rotate: logoRotateInterpolate }, { translateY: floatTranslate }] }]}>
                                 <View style={styles.logoWrapper}>
                                     <View style={styles.logoInnerGlow} />
-                                    <Image
-                                        source={require('../assets/icon.png')}
-                                        style={styles.logo}
-                                        resizeMode="contain"
-                                    />
+                                    <Image source={require('../assets/icon.png')} style={styles.logo} resizeMode="contain" />
                                 </View>
                             </Animated.View>
-
                             <View style={styles.headerTextContainer}>
                                 <Text style={styles.welcomeText}>Welcome Back!</Text>
                                 <Text style={styles.title}>Choose Your Category</Text>
@@ -381,34 +252,13 @@ export default function CategoryScreen() {
                         </View>
                     </Animated.View>
                 </LinearGradient>
-
-                <ScrollView
-                    style={styles.scrollContainer}
-                    showsVerticalScrollIndicator={false}
-                    contentContainerStyle={styles.scrollContent}
-                >
-                    {categories.slice(0, 2).map((item, index) => (
-                        <CategoryCard key={index} item={item} index={index} />
-                    ))}
-
-                    <View style={styles.smallCardsRow}>
-                        {categories.slice(2, 4).map((item, index) => (
-                            <CategoryCard key={index + 2} item={item} index={index + 2} />
-                        ))}
-                    </View>
-
-                    {/* Footer Section */}
+                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                    {categories.slice(0, 2).map((item, index) => (<CategoryCard key={index} item={item} index={index} />))}
+                    <View style={styles.smallCardsRow}>{categories.slice(2, 4).map((item, index) => (<CategoryCard key={index + 2} item={item} index={index + 2} />))}</View>
                     <View style={styles.footerSection}>
-                        <LinearGradient
-                            colors={['#8B5CF6', '#6366F1']}
-                            style={styles.footerGradient}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                        >
+                        <LinearGradient colors={['#8B5CF6', '#6366F1']} style={styles.footerGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }}>
                             <Text style={styles.footerTitle}>✨ Explore. Experience. Enjoy. ✨</Text>
-                            <Text style={styles.footerSubtitle}>
-                                Find everything you love, all in one place!
-                            </Text>
+                            <Text style={styles.footerSubtitle}>Find everything you love, all in one place!</Text>
                         </LinearGradient>
                     </View>
                 </ScrollView>
@@ -417,6 +267,7 @@ export default function CategoryScreen() {
     );
 }
 
+// --- Styles (Keep the existing styles object as it was) ---
 const styles = StyleSheet.create({
     safeArea: {
         flex: 1,
@@ -738,7 +589,6 @@ const styles = StyleSheet.create({
         textAlign: 'left',
         letterSpacing: 0.3
     },
-    // --- UPDATED FOOTER STYLES ---
     footerSection: {
         marginTop: 20,
         marginBottom: 20,

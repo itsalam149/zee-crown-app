@@ -7,25 +7,73 @@ import {
   Platform,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
+  KeyboardAvoidingView,
+  Keyboard,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from '../config/colors'; // Adjusted path
+import colors from '../config/colors';
 import { useState } from 'react';
-import { radius, spacingX, spacingY } from '../config/spacing'; // Adjusted path
-import Typo from '../components/Typo'; // Adjusted path
-import { normalizeY } from '../utils/normalize'; // Adjusted path
+import { radius, spacingX, spacingY } from '../config/spacing';
+import Typo from '../components/Typo';
+import { normalizeY } from '../utils/normalize';
 import { Octicons } from '@expo/vector-icons';
-import AppButton from '../components/AppButton'; // Adjusted path
+import AppButton from '../components/AppButton';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase'; // Adjusted path
+import { supabase } from '../lib/supabase';
 import Toast from 'react-native-toast-message';
-// Import OtpType only if needed for navigation hint (optional)
-import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
+import { OtpType } from './VerifyOtpScreen';
 
 const { width, height } = Dimensions.get('screen');
-let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
+
+// Responsive helper functions
+const isSmallDevice = height < 700;
+const isMediumDevice = height >= 700 && height < 900;
+const isLargeDevice = height >= 900;
+
+// Responsive spacing
+const getResponsiveSpacing = () => {
+  if (isSmallDevice) {
+    return {
+      topPadding: Platform.OS === 'ios' ? height * 0.02 : spacingY._5,
+      titleSize: 22,
+      subtitleSize: 16,
+      inputHeight: 48,
+      fontSize: 14,
+      verticalGap: spacingY._10,
+      buttonMargin: spacingY._15,
+      blurPaddingVertical: spacingY._15,
+      bottomMargin: spacingY._20,
+    };
+  } else if (isMediumDevice) {
+    return {
+      topPadding: Platform.OS === 'ios' ? height * 0.04 : spacingY._10,
+      titleSize: 26,
+      subtitleSize: 18,
+      inputHeight: 55,
+      fontSize: 16,
+      verticalGap: spacingY._15,
+      buttonMargin: spacingY._20,
+      blurPaddingVertical: spacingY._25,
+      bottomMargin: spacingY._30,
+    };
+  } else {
+    return {
+      topPadding: Platform.OS === 'ios' ? height * 0.05 : spacingY._15,
+      titleSize: 30,
+      subtitleSize: 20,
+      inputHeight: 60,
+      fontSize: 18,
+      verticalGap: spacingY._20,
+      buttonMargin: spacingY._25,
+      blurPaddingVertical: spacingY._30,
+      bottomMargin: spacingY._35,
+    };
+  }
+};
+
+const responsiveValues = getResponsiveSpacing();
 
 function SigninScreen(props) {
   const navigation = useNavigation();
@@ -55,25 +103,18 @@ function SigninScreen(props) {
     if (error) {
       // --- Handle Unconfirmed Email Error ---
       if (error.message.includes('Email not confirmed') || error.code === 'USER_NOT_CONFIRMED') {
-        // Tell user to verify their email via OTP using the dedicated screen
         Toast.show({
           type: 'info',
           text1: 'Email Not Verified',
           text2: 'Please check your email for the verification OTP and enter it on the verification screen.',
-          visibilityTime: 5000 // Show message longer
+          visibilityTime: 5000
         });
-        // Optional: Navigate to VerifyOtpScreen automatically if desired
-        // Consider adding a small delay if navigating automatically
-        // setTimeout(() => {
-        //    navigation.navigate('VerifyOtp', { email: email, otpType: OtpType.SIGNUP });
-        // }, 100);
       } else if (error.message.includes('Invalid login credentials')) {
         Toast.show({ type: 'error', text1: 'Sign In Failed', text2: 'Incorrect email or password.' });
       } else {
         Toast.show({ type: 'error', text1: 'Sign In Failed', text2: error.message });
       }
     }
-    // Success: onAuthStateChange listener in App.js will handle navigation
   };
 
   const navigateToRegister = () => {
@@ -90,8 +131,8 @@ function SigninScreen(props) {
   const renderContent = () => {
     return (
       <>
-        <Typo size={26} style={styles.text}>Hello Again!</Typo>
-        <Typo size={20} style={styles.body}>Welcome back!</Typo>
+        <Typo size={responsiveValues.titleSize} style={styles.text}>Hello Again!</Typo>
+        <Typo size={responsiveValues.subtitleSize} style={styles.body}>Welcome back!</Typo>
         <View style={styles.inputView}>
           <TextInput
             value={email}
@@ -101,6 +142,7 @@ function SigninScreen(props) {
             style={styles.input}
             autoCapitalize="none"
             keyboardType="email-address"
+            returnKeyType="next"
           />
         </View>
         <View style={styles.inputView}>
@@ -111,9 +153,11 @@ function SigninScreen(props) {
             placeholderTextColor="grey"
             style={styles.passwordInput}
             secureTextEntry={isSecure}
+            returnKeyType="done"
+            onSubmitEditing={handlePasswordSignIn}
           />
           <TouchableOpacity onPress={() => setIsSecure(!isSecure)} style={styles.eyeIcon}>
-            <Octicons name={isSecure ? "eye-closed" : "eye"} size={20} color="grey" />
+            <Octicons name={isSecure ? "eye-closed" : "eye"} size={responsiveValues.fontSize + 4} color="grey" />
           </TouchableOpacity>
         </View>
         <TouchableOpacity onPress={navigateToForgotPassword}>
@@ -122,11 +166,10 @@ function SigninScreen(props) {
         <AppButton
           onPress={handlePasswordSignIn}
           label={loading ? "Signing In..." : "Sign in"}
-          loading={loading} // Pass loading state if AppButton supports it
+          loading={loading}
           disabled={loading}
           style={styles.actionButton}
         />
-        {/* Removed OTP switch method button */}
       </>
     );
   };
@@ -140,118 +183,173 @@ function SigninScreen(props) {
         <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
         <View style={styles.c2} />
       </View>
-      {/* Scrollable Form Area */}
-      <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
-        <BlurView intensity={80} tint="light" style={styles.blurView}>
-          {renderContent()}
 
-          {/* Register Link */}
-          {!loading && (
-            <TouchableOpacity
-              style={styles.bottomText}
-              onPress={navigateToRegister}>
-              <Typo>Not a member?</Typo>
-              <Typo style={{ color: colors.blue }}> Register now</Typo>
-            </TouchableOpacity>
-          )}
-          {/* Loading indicator can be shown inside AppButton if configured */}
-        </BlurView>
-      </ScrollView>
+      {/* KeyboardAvoidingView for iOS keyboard handling */}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+      >
+        {/* TouchableWithoutFeedback to dismiss keyboard when tapping outside */}
+        <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <BlurView intensity={80} tint="light" style={styles.blurView}>
+              {renderContent()}
+
+              {/* Register Link */}
+              {!loading && (
+                <TouchableOpacity
+                  style={styles.bottomText}
+                  onPress={navigateToRegister}>
+                  <Typo size={responsiveValues.fontSize - 2}>Not a member?</Typo>
+                  <Typo size={responsiveValues.fontSize - 2} style={{ color: colors.blue }}> Register now</Typo>
+                </TouchableOpacity>
+              )}
+            </BlurView>
+          </ScrollView>
+        </TouchableWithoutFeedback>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 // --- Styles ---
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  scrollContainer: { // Ensures content can scroll and centers if screen is tall
+  container: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  keyboardView: {
+    flex: 1,
+  },
+  scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: isSmallDevice ? spacingY._10 : responsiveValues.blurPaddingVertical,
   },
-  blurView: { // Styling for the blurred container
-    paddingHorizontal: spacingX._20,
-    paddingTop: paddingTop * 0.5, // Reduced top padding inside scroll view
-    paddingBottom: spacingY._60, // Space at the bottom for the register link
+  blurView: {
+    paddingHorizontal: width < 375 ? spacingX._15 : spacingX._20,
+    paddingTop: responsiveValues.topPadding,
+    paddingBottom: responsiveValues.blurPaddingVertical,
     borderRadius: radius._20,
-    marginHorizontal: spacingX._15, // Side margins
-    marginVertical: spacingY._10, // Top/bottom margins
+    marginHorizontal: width < 375 ? spacingX._10 : spacingX._15,
+    marginVertical: spacingY._10,
     overflow: 'hidden',
+    maxWidth: 500,
+    alignSelf: 'center',
+    width: '100%',
   },
-  background: { // Background styling (absolute positioning)
+  background: {
     flex: 1,
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: colors.white // Base background color
+    backgroundColor: colors.white
   },
-  inputView: { // Container for TextInput and icons
-    backgroundColor: '#ffffffaa', // Semi-transparent white
+  inputView: {
+    backgroundColor: '#ffffffaa',
     borderRadius: radius._15,
-    marginTop: spacingY._15,
-    shadowColor: colors.lightBlue, // Shadow for depth
+    marginTop: responsiveValues.verticalGap,
+    shadowColor: colors.lightBlue,
     shadowOffset: { height: 1, width: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
-    elevation: 2, // Android shadow
-    flexDirection: 'row', // Align icon and input horizontally
-    alignItems: 'center', // Center items vertically
-    paddingRight: spacingX._5, // Space for eye icon
-    borderWidth: Platform.OS === 'android' ? 0.5 : 0, // Subtle border on Android
+    elevation: 2,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingRight: spacingX._5,
+    borderWidth: Platform.OS === 'android' ? 0.5 : 0,
     borderColor: '#0000001A',
+    minHeight: responsiveValues.inputHeight,
   },
-  input: { // Style for the email TextInput
-    paddingVertical: spacingY._10, // FIX: Reduced vertical padding
-    paddingHorizontal: spacingX._20, // Horizontal padding
-    fontSize: normalizeY(16), // Dynamic font size
-    flex: 1, // Take available horizontal space
-    color: colors.black,
-    height: 55, // Fixed height for consistency
-  },
-  passwordInput: { // Style for the password TextInput
-    paddingVertical: spacingY._10, // FIX: Reduced vertical padding
-    paddingHorizontal: spacingX._20,
-    fontSize: normalizeY(16),
+  input: {
+    paddingVertical: Platform.OS === 'ios' ? spacingY._8 : spacingY._5,
+    paddingHorizontal: width < 375 ? spacingX._15 : spacingX._20,
+    fontSize: responsiveValues.fontSize,
     flex: 1,
     color: colors.black,
-    height: 55,
+    height: responsiveValues.inputHeight,
   },
-  eyeIcon: { // Style for the password visibility toggle touchable area
-    paddingHorizontal: spacingX._15,
+  passwordInput: {
+    paddingVertical: Platform.OS === 'ios' ? spacingY._8 : spacingY._5,
+    paddingHorizontal: width < 375 ? spacingX._15 : spacingX._20,
+    fontSize: responsiveValues.fontSize,
+    flex: 1,
+    color: colors.black,
+    height: responsiveValues.inputHeight,
   },
-  text: { // Style for the main title ("Hello Again!")
+  eyeIcon: {
+    paddingHorizontal: width < 375 ? spacingX._10 : spacingX._15,
+    paddingVertical: spacingY._10,
+  },
+  text: {
     fontWeight: '600',
     textAlign: 'center',
     alignSelf: 'center',
     marginTop: spacingY._10,
     marginBottom: spacingY._5,
   },
-  body: { // Style for the subtitle ("Welcome back!")
+  body: {
     textAlign: 'center',
     alignSelf: 'center',
     margin: 2,
-    marginBottom: spacingY._15,
+    marginBottom: responsiveValues.verticalGap,
     color: colors.gray,
     paddingHorizontal: spacingX._10,
   },
-  recoverTxt: { // Style for the "Forgot Password?" text
-    alignSelf: 'flex-end', // Align to the right
-    marginTop: spacingY._15,
-    marginBottom: spacingY._15,
-    color: colors.blue, // Make it look like a link
+  recoverTxt: {
+    alignSelf: 'flex-end',
+    marginTop: responsiveValues.verticalGap,
+    marginBottom: responsiveValues.verticalGap,
+    color: colors.blue,
+    fontSize: responsiveValues.fontSize - 2,
   },
-  actionButton: { // Style for the main "Sign in" button
+  actionButton: {
     backgroundColor: colors.primary,
     borderRadius: radius._12,
-    marginTop: spacingY._20,
+    marginTop: responsiveValues.buttonMargin,
+    minHeight: responsiveValues.inputHeight,
   },
-  bottomText: { // Style for the "Not a member? Register now" text container
-    flexDirection: 'row', // Align text horizontally
+  bottomText: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center', // Center horizontally
-    marginTop: spacingY._30, // Space above the text
+    justifyContent: 'center',
+    marginTop: responsiveValues.bottomMargin,
+    flexWrap: 'wrap',
   },
-  // Background decorative circles (position absolutely)
-  c1: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: colors.lightBlue + '50', position: 'absolute', top: '10%', right: '-25%' },
-  c2: { width: width / 1.2, height: width / 1.2, borderRadius: width / 2, backgroundColor: '#fee2e2' + '80', position: 'absolute', bottom: '-20%', left: '-15%', opacity: 0.8 },
-  orangeCircle: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: '#fed7aa' + '50', position: 'absolute', right: '-10%', bottom: '5%', opacity: 0.4 },
+  // Background decorative circles (responsive sizing)
+  c1: {
+    width: width / 1.5,
+    height: width / 1.5,
+    borderRadius: width / 2,
+    backgroundColor: colors.lightBlue + '50',
+    position: 'absolute',
+    top: '10%',
+    right: '-25%'
+  },
+  c2: {
+    width: width / 1.2,
+    height: width / 1.2,
+    borderRadius: width / 2,
+    backgroundColor: '#fee2e2' + '80',
+    position: 'absolute',
+    bottom: '-20%',
+    left: '-15%',
+    opacity: 0.8
+  },
+  orangeCircle: {
+    width: width / 1.5,
+    height: width / 1.5,
+    borderRadius: width / 2,
+    backgroundColor: '#fed7aa' + '50',
+    position: 'absolute',
+    right: '-10%',
+    bottom: '5%',
+    opacity: 0.4
+  },
 });
 
 export default SigninScreen;
