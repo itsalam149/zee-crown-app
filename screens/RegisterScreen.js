@@ -8,23 +8,39 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from '../config/colors'; // Adjusted path
+import colors from '../config/colors';
 import { useState } from 'react';
-import { radius, spacingX, spacingY } from '../config/spacing'; // Adjusted path
-import Typo from '../components/Typo'; // Adjusted path
-import { normalizeY } from '../utils/normalize'; // Adjusted path
+import { radius, spacingX, spacingY } from '../config/spacing';
+import Typo from '../components/Typo';
+import { normalizeY } from '../utils/normalize';
 import { Octicons } from '@expo/vector-icons';
-import AppButton from '../components/AppButton'; // Adjusted path
+import AppButton from '../components/AppButton';
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase'; // Adjusted path
+import { supabase } from '../lib/supabase';
 import Toast from 'react-native-toast-message';
-import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
+import { OtpType } from './VerifyOtpScreen';
 
 const { width, height } = Dimensions.get('screen');
-let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
+const isSmallDevice = width < 375;
+const isMediumDevice = width >= 375 && width < 768;
+const isTablet = width >= 768;
+
+// Responsive padding
+const getResponsivePadding = () => {
+  if (Platform.OS === 'ios') {
+    return isSmallDevice ? height * 0.05 : height * 0.07;
+  }
+  return spacingY._10;
+};
+
+// Responsive content width for tablets
+const getContentWidth = () => {
+  if (isTablet) return Math.min(width * 0.7, 500);
+  return width - spacingX._15 * 2;
+};
 
 function RegisterScreen() {
   const navigation = useNavigation();
@@ -158,127 +174,152 @@ function RegisterScreen() {
         <View style={[styles.c2, { opacity: 0.7 }]} />
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardView}
       >
-        <BlurView intensity={80} tint="light" style={styles.blurView}>
-          <Typo size={26} style={styles.text}>
-            Hello There!
-          </Typo>
-          <Typo size={20} style={styles.body}>
-            Join Us to Unlock a World of Shopping Delights!
-          </Typo>
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.centerWrapper}>
+            <BlurView intensity={80} tint="light" style={styles.blurView}>
+              <Typo size={isSmallDevice ? 22 : 26} style={styles.text}>
+                Hello There!
+              </Typo>
+              <Typo size={isSmallDevice ? 16 : 20} style={styles.body}>
+                Join Us to Unlock a World of Shopping Delights!
+              </Typo>
 
-          {/* Form Inputs */}
-          <View style={styles.inputView}>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              placeholder="Enter name"
-              placeholderTextColor="grey"
-              style={styles.input}
-              autoCapitalize="words"
-            />
-          </View>
+              {/* Form Inputs */}
+              <View style={styles.inputView}>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="Enter name"
+                  placeholderTextColor="grey"
+                  style={styles.input}
+                  autoCapitalize="words"
+                />
+              </View>
 
-          <View style={styles.inputView}>
-            <TextInput
-              value={email}
-              onChangeText={setEmail}
-              placeholder="Enter email"
-              placeholderTextColor="grey"
-              style={styles.input}
-              autoCapitalize="none"
-              keyboardType="email-address"
-            />
-          </View>
+              <View style={styles.inputView}>
+                <TextInput
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="Enter email"
+                  placeholderTextColor="grey"
+                  style={styles.input}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                />
+              </View>
 
-          <View style={styles.inputView}>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="Enter mobile number"
-              placeholderTextColor="grey"
-              style={styles.input}
-              keyboardType="phone-pad"
-            />
-          </View>
+              <View style={styles.inputView}>
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="Enter mobile number"
+                  placeholderTextColor="grey"
+                  style={styles.input}
+                  keyboardType="phone-pad"
+                />
+              </View>
 
-          <View style={styles.inputView}>
-            <TextInput
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Password (min 6 chars)"
-              placeholderTextColor="grey"
-              style={styles.passwordInput}
-              secureTextEntry={isSecure}
-            />
-            <TouchableOpacity
-              onPress={() => setIsSecure(!isSecure)}
-              style={styles.eyeIcon}
-            >
-              <Octicons
-                name={isSecure ? 'eye-closed' : 'eye'}
-                size={20}
-                color="grey"
+              <View style={styles.inputView}>
+                <TextInput
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Password (min 6 chars)"
+                  placeholderTextColor="grey"
+                  style={styles.passwordInput}
+                  secureTextEntry={isSecure}
+                />
+                <TouchableOpacity
+                  onPress={() => setIsSecure(!isSecure)}
+                  style={styles.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Octicons
+                    name={isSecure ? 'eye-closed' : 'eye'}
+                    size={20}
+                    color="grey"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputView}>
+                <TextInput
+                  value={confirmPassword}
+                  onChangeText={setConfirmPassword}
+                  placeholder="Confirm Password"
+                  placeholderTextColor="grey"
+                  style={styles.passwordInput}
+                  secureTextEntry={isConfirmSecure}
+                />
+                <TouchableOpacity
+                  onPress={() => setIsConfirmSecure(!isConfirmSecure)}
+                  style={styles.eyeIcon}
+                  activeOpacity={0.7}
+                >
+                  <Octicons
+                    name={isConfirmSecure ? 'eye-closed' : 'eye'}
+                    size={20}
+                    color="grey"
+                  />
+                </TouchableOpacity>
+              </View>
+
+              <AppButton
+                onPress={handleRegister}
+                label={loading ? 'Registering...' : 'Register'}
+                loading={loading}
+                disabled={loading}
+                style={styles.registerButton}
               />
-            </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.bottomText}
+                onPress={navigateToSignIn}
+                activeOpacity={0.7}
+              >
+                <Typo size={isSmallDevice ? 14 : 16}>Already a member?</Typo>
+                <Typo size={isSmallDevice ? 14 : 16} style={{ color: colors.blue }}> Signin</Typo>
+              </TouchableOpacity>
+            </BlurView>
           </View>
-
-          <View style={styles.inputView}>
-            <TextInput
-              value={confirmPassword}
-              onChangeText={setConfirmPassword}
-              placeholder="Confirm Password"
-              placeholderTextColor="grey"
-              style={styles.passwordInput}
-              secureTextEntry={isConfirmSecure}
-            />
-            <TouchableOpacity
-              onPress={() => setIsConfirmSecure(!isConfirmSecure)}
-              style={styles.eyeIcon}
-            >
-              <Octicons
-                name={isConfirmSecure ? 'eye-closed' : 'eye'}
-                size={20}
-                color="grey"
-              />
-            </TouchableOpacity>
-          </View>
-
-          <AppButton
-            onPress={handleRegister}
-            label={loading ? 'Registering...' : 'Register'}
-            loading={loading}
-            disabled={loading}
-            style={styles.registerButton}
-          />
-
-          <TouchableOpacity style={styles.bottomText} onPress={navigateToSignIn}>
-            <Typo>Already a member?</Typo>
-            <Typo style={{ color: colors.blue }}> Signin</Typo>
-          </TouchableOpacity>
-        </BlurView>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 // --- Styles ---
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.white,
+  },
+  keyboardView: {
+    flex: 1,
+  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
+    paddingVertical: isSmallDevice ? spacingY._10 : spacingY._20,
+  },
+  centerWrapper: {
+    alignItems: 'center',
+    width: '100%',
   },
   blurView: {
-    paddingHorizontal: spacingX._20,
-    paddingTop: paddingTop * 0.5,
-    paddingBottom: spacingY._40,
+    width: getContentWidth(),
+    paddingHorizontal: isSmallDevice ? spacingX._15 : spacingX._20,
+    paddingTop: isSmallDevice ? spacingY._20 : getResponsivePadding() * 0.5,
+    paddingBottom: isSmallDevice ? spacingY._25 : spacingY._40,
     borderRadius: radius._20,
     marginHorizontal: spacingX._15,
-    marginVertical: spacingY._10,
     overflow: 'hidden',
   },
   background: {
@@ -289,7 +330,7 @@ const styles = StyleSheet.create({
   inputView: {
     backgroundColor: '#ffffffaa',
     borderRadius: radius._15,
-    marginTop: spacingY._15,
+    marginTop: isSmallDevice ? spacingY._12 : spacingY._15,
     shadowColor: colors.lightPink,
     shadowOffset: { height: 1, width: 0 },
     shadowOpacity: 0.1,
@@ -300,50 +341,55 @@ const styles = StyleSheet.create({
     paddingRight: spacingX._5,
     borderWidth: Platform.OS === 'android' ? 0.5 : 0,
     borderColor: '#0000001A',
+    minHeight: isSmallDevice ? 50 : 55,
   },
   input: {
-    paddingVertical: spacingY._10,
-    paddingHorizontal: spacingX._20,
-    fontSize: normalizeY(16),
+    paddingVertical: isSmallDevice ? spacingY._8 : spacingY._10,
+    paddingHorizontal: isSmallDevice ? spacingX._15 : spacingX._20,
+    fontSize: isSmallDevice ? normalizeY(14) : normalizeY(16),
     flex: 1,
     color: colors.black,
-    height: 55,
+    height: isSmallDevice ? 50 : 55,
   },
   passwordInput: {
-    paddingVertical: spacingY._10,
-    paddingHorizontal: spacingX._20,
-    fontSize: normalizeY(16),
+    paddingVertical: isSmallDevice ? spacingY._8 : spacingY._10,
+    paddingHorizontal: isSmallDevice ? spacingX._15 : spacingX._20,
+    fontSize: isSmallDevice ? normalizeY(14) : normalizeY(16),
     flex: 1,
     color: colors.black,
-    height: 55,
+    height: isSmallDevice ? 50 : 55,
   },
   eyeIcon: {
-    paddingHorizontal: spacingX._15,
+    paddingHorizontal: isSmallDevice ? spacingX._10 : spacingX._15,
+    paddingVertical: spacingY._10,
   },
   text: {
     fontWeight: '600',
     textAlign: 'center',
     alignSelf: 'center',
-    marginTop: spacingY._20,
+    marginTop: isSmallDevice ? spacingY._15 : spacingY._20,
     marginBottom: spacingY._5,
   },
   body: {
     textAlign: 'center',
     alignSelf: 'center',
-    marginVertical: spacingY._10,
+    marginVertical: isSmallDevice ? spacingY._8 : spacingY._10,
     color: colors.gray,
+    paddingHorizontal: spacingX._10,
   },
   registerButton: {
     backgroundColor: colors.primary,
     borderRadius: radius._12,
-    marginTop: spacingY._25,
+    marginTop: isSmallDevice ? spacingY._20 : spacingY._25,
+    minHeight: isSmallDevice ? 48 : 52,
   },
   bottomText: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
     gap: spacingX._5,
-    marginTop: spacingY._25,
+    marginTop: isSmallDevice ? spacingY._20 : spacingY._25,
+    paddingVertical: spacingY._10,
   },
   c1: {
     width: width,
@@ -352,10 +398,10 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightBlue + '50',
     position: 'absolute',
     top: '-10%',
-    right: '-30%',
+    right: isTablet ? '-15%' : '-30%',
   },
   c2: {
-    height: normalizeY(150),
+    height: isSmallDevice ? normalizeY(120) : normalizeY(150),
     backgroundColor: colors.lightPink + '50',
     width: '100%',
     position: 'absolute',
@@ -369,7 +415,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.lightPink + '50',
     position: 'absolute',
     top: '5%',
-    left: '-25%',
+    left: isTablet ? '-15%' : '-25%',
   },
 });
 

@@ -1,4 +1,4 @@
-// screens/ForgotPasswordScreen.js
+// screens/ForgotPasswordScreen.js (FIXED - COPY THIS ENTIRE FILE)
 import React, { useState } from 'react';
 import {
     StyleSheet,
@@ -12,79 +12,69 @@ import {
     ScrollView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from '../config/colors'; // Adjust path
-import { radius, spacingX, spacingY } from '../config/spacing'; // Adjust path
-import Typo from '../components/Typo'; // Adjust path
-import AppButton from '../components/AppButton'; // Adjust path
+import colors from '../config/colors'; //
+import { radius, spacingX, spacingY } from '../config/spacing'; //
+import Typo from '../components/Typo'; //
+import AppButton from '../components/AppButton'; //
 import { useNavigation } from '@react-navigation/native';
-import { supabase } from '../lib/supabase'; // Adjust path
-import { normalizeY } from '../utils/normalize'; // Adjust path
+import { supabase } from '../lib/supabase'; //
+import { normalizeY } from '../utils/normalize'; //
 import Toast from 'react-native-toast-message';
-// Import OtpType from VerifyOtpScreen
-import { OtpType } from './VerifyOtpScreen'; // Adjust path if needed
+import { OtpType } from './VerifyOtpScreen'; //
 
 const { width, height } = Dimensions.get('screen');
-let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10; //
+let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
 function ForgotPasswordScreen() {
     const navigation = useNavigation();
-    const [email, setEmail] = useState(''); //
-    const [loading, setLoading] = useState(false); //
+    const [email, setEmail] = useState('');
+    const [loading, setLoading] = useState(false);
 
-    // --- Send OTP to Email ---
     const handleSendOtp = async () => {
         if (!email) {
             Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter your email address.' });
             return;
         }
         setLoading(true);
-        console.log("ForgotPasswordScreen: Requesting password reset for", email); // Log
+        console.log("ForgotPasswordScreen: Requesting password reset for", email);
 
-        // *** FIX: Use resetPasswordForEmail instead of signInWithOtp ***
-        // This is the dedicated method for password resets and works with 'recovery' type OTP.
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-            // You can add a redirectTo link here if you want to use links instead of OTP
-            // redirectTo: 'yourapp://password-reset'
-        });
+        // *** FIX: Use resetPasswordForEmail for password reset flow ***
+        const { error } = await supabase.auth.resetPasswordForEmail(email);
 
         setLoading(false);
         if (error) {
-            console.error("ForgotPasswordScreen: Error requesting reset:", error); // Log
+            console.error("ForgotPasswordScreen: Error requesting reset:", error);
             Toast.show({ type: 'error', text1: 'Error Sending Request', text2: error.message });
         } else {
-            console.log("ForgotPasswordScreen: Password reset request successful."); // Log
+            console.log("ForgotPasswordScreen: Password reset request successful.");
             Toast.show({
                 type: 'success',
                 text1: 'Check your email',
                 text2: 'Instructions to reset your password have been sent.',
             });
-            // Navigate to VerifyOtpScreen
-            console.log("ForgotPasswordScreen: Navigating to VerifyOtp with nextScreen='SetNewPassword'"); // Log
+            console.log("ForgotPasswordScreen: Navigating to VerifyOtp with nextScreen='SetNewPassword'");
             navigation.navigate('VerifyOtp', {
                 email: email,
                 otpType: OtpType.PASSWORD_RESET,
-                nextScreen: 'SetNewPassword', // <-- Ensure this matches AuthNavigator name
+                nextScreen: 'SetNewPassword',
             });
         }
     };
 
-    // --- Render ---
     return (
         <SafeAreaView style={styles.container}>
-            {/* Background */}
             <View style={styles.background}>
                 <View style={[styles.c1, { opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { bottom: '25%', left: '5%', opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
                 <View style={styles.c2} />
             </View>
-            {/* Content */}
             <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
                 <BlurView intensity={100} tint="light" style={styles.blurContainer}>
                     <View style={styles.contentView}>
                         <Typo size={26} style={styles.text}>Forgot Password?</Typo>
                         <Typo size={16} style={styles.body}>
-                            Enter your email address below and we'll send instructions to reset your password.
+                            Enter your email address below and we'll send you instructions to reset your password.
                         </Typo>
                         <View style={styles.inputView}>
                             <TextInput
@@ -115,8 +105,7 @@ function ForgotPasswordScreen() {
 }
 
 // --- Styles ---
-// Styles remain unchanged
-const styles = StyleSheet.create({
+const styles = StyleSheet.create({ //
     container: { flex: 1 },
     blurContainer: {
         flexGrow: 1, paddingHorizontal: spacingX._20, paddingTop: paddingTop,
@@ -134,7 +123,7 @@ const styles = StyleSheet.create({
         width: '95%',
     },
     input: {
-        paddingVertical: spacingY._10, // Reduced padding
+        paddingVertical: spacingY._10,
         paddingHorizontal: spacingX._20,
         fontSize: normalizeY(16), flex: 1, color: colors.black, height: 55,
     },
@@ -147,10 +136,9 @@ const styles = StyleSheet.create({
         color: colors.gray, paddingHorizontal: spacingX._10, width: '95%',
     },
     actionButton: {
-        backgroundColor: colors.primary, borderRadius: radius._12, marginTop: spacingY._20, width: '95%',
+        backgroundColor: colors.primary, borderRadius: radius._12, marginTop: spacingY._20, width: '9f5%',
     },
     bottomText: { alignSelf: 'center', paddingBottom: spacingY._10, },
-    // Background circles
     c1: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: colors.lightBlue + '50', position: 'absolute', top: '10%', right: '-25%' },
     c2: { width: width / 1.2, height: width / 1.2, borderRadius: width / 2, backgroundColor: '#fee2e2' + '80', position: 'absolute', bottom: '-20%', left: '-15%', opacity: 0.8 },
     orangeCircle: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: '#fed7aa' + '50', position: 'absolute', right: '-10%', bottom: '5%', opacity: 0.4 },

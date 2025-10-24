@@ -20,6 +20,7 @@ import { supabase } from '../lib/supabase';
 import { normalizeY } from '../utils/normalize';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import useAuth from '../auth/useAuth'; // Import useAuth to check current user
 
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
@@ -27,6 +28,7 @@ let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 function SetNewPasswordScreen() {
     const navigation = useNavigation();
     const route = useRoute();
+    const { user } = useAuth(); // Get current user state if needed for checks
     const { email } = route.params || {};
 
     const [newPassword, setNewPassword] = useState('');
@@ -36,57 +38,62 @@ function SetNewPasswordScreen() {
     const [isConfirmSecure, setIsConfirmSecure] = useState(true);
 
     const handleSetNewPassword = async () => {
+        // --- Input Validations ---
         if (!newPassword || !confirmNewPassword) {
-            Toast.show({
-                type: 'error',
-                text1: 'Input Error',
-                text2: 'Please enter and confirm password.',
-            });
+            Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter and confirm password.' });
             return;
         }
         if (newPassword !== confirmNewPassword) {
-            Toast.show({
-                type: 'error',
-                text1: 'Password Mismatch',
-                text2: 'Passwords do not match.',
-            });
+            Toast.show({ type: 'error', text1: 'Password Mismatch', text2: 'Passwords do not match.' });
             return;
         }
         if (newPassword.length < 6) {
-            Toast.show({
-                type: 'error',
-                text1: 'Password Too Short',
-                text2: 'Password must be at least 6 characters.',
-            });
+            Toast.show({ type: 'error', text1: 'Password Too Short', text2: 'Password must be at least 6 characters.' });
             return;
         }
 
         setLoading(true);
 
-        const { error } = await supabase.auth.updateUser({
+        // --- Check if user is authenticated (should be after OTP verification) ---
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+        console.log("[SetNewPassword] Session Check:", session ? `User: ${session.user.id}` : 'No session', "Error:", sessionError);
+
+        if (sessionError || !session?.user) {
+            Toast.show({ type: 'error', text1: 'Authentication Error', text2: 'Session expired or invalid. Please try resetting again.' });
+            await supabase.auth.signOut().catch(console.error); // Ensure sign out
+            navigation.navigate('Signin');
+            setLoading(false);
+            return;
+        }
+
+        // --- Update User Password ---
+        console.log("[SetNewPassword] Attempting password update...");
+        const { error: updateError } = await supabase.auth.updateUser({
             password: newPassword,
         });
 
         setLoading(false);
 
-        if (error) {
-            Toast.show({
-                type: 'error',
-                text1: 'Password Reset Failed',
-                text2: error.message,
-            });
+        if (updateError) {
+            console.error("[SetNewPassword] Password update failed:", updateError);
+            Toast.show({ type: 'error', text1: 'Password Reset Failed', text2: updateError.message });
+            // FIX: Explicitly sign out if update fails, as the temporary session might be invalid
             await supabase.auth.signOut().catch(console.error);
-            navigation.navigate('Signin');
+            navigation.navigate('Signin'); // Navigate back to sign in
         } else {
+            console.log("[SetNewPassword] Password reset successful.");
             Toast.show({
                 type: 'success',
                 text1: 'Password Reset Successful',
                 text2: 'You can now sign in with your new password.',
             });
+            // FIX: Ensure user is signed out before navigating to Signin
+            // This clears the temporary session used for the update.
             await supabase.auth.signOut();
-            navigation.navigate('Signin');
+            navigation.navigate('Signin'); // Navigate to Signin screen
         }
     };
+
 
     return (
         <SafeAreaView style={styles.container}>
@@ -104,7 +111,7 @@ function SetNewPasswordScreen() {
                     <View style={styles.contentView}>
                         <Typo size={26} style={styles.text}>Set New Password</Typo>
                         <Typo size={16} style={styles.body}>
-                            Enter your new password {email ? `for ${email}` : ''}.
+                            Enter your new password{email ? ` for ${email}` : ''}.
                         </Typo>
 
                         {/* New Password */}
@@ -113,6 +120,7 @@ function SetNewPasswordScreen() {
                                 value={newPassword}
                                 onChangeText={setNewPassword}
                                 placeholder="New Password"
+                                placeholderTextColor="grey" // Added placeholder color
                                 style={styles.input}
                                 secureTextEntry={isPasswordSecure}
                                 autoCapitalize="none"
@@ -135,6 +143,7 @@ function SetNewPasswordScreen() {
                                 value={confirmNewPassword}
                                 onChangeText={setConfirmNewPassword}
                                 placeholder="Confirm New Password"
+                                placeholderTextColor="grey" // Added placeholder color
                                 style={styles.input}
                                 secureTextEntry={isConfirmSecure}
                                 autoCapitalize="none"
@@ -174,6 +183,7 @@ function SetNewPasswordScreen() {
     );
 }
 
+// Styles remain unchanged
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {
