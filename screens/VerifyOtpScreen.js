@@ -2,19 +2,20 @@
 import React, { useState, useEffect } from 'react';
 import {
     StyleSheet, View, SafeAreaView, TextInput, TouchableOpacity, Dimensions,
-    Platform, ActivityIndicator, ScrollView,
+    Platform, ActivityIndicator, ScrollView, KeyboardAvoidingView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
-import colors from '../config/colors'; // Adjust path
-import { radius, spacingX, spacingY } from '../config/spacing'; // Adjust path
-import Typo from '../components/Typo'; // Adjust path
-import AppButton from '../components/AppButton'; // Adjust path
+import colors from '../config/colors';
+import { radius, spacingX, spacingY } from '../config/spacing';
+import Typo from '../components/Typo';
+import AppButton from '../components/AppButton';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import { supabase } from '../lib/supabase'; // Adjust path
-import { normalizeY } from '../utils/normalize'; // Adjust path
+import { supabase } from '../lib/supabase';
+import { normalizeY, normalizeX } from '../utils/normalize';
 import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('screen');
+const isSmallDevice = height < 700;
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
 // Define OTP types
@@ -40,8 +41,8 @@ function VerifyOtpScreen() {
     }
 
     const [otp, setOtp] = useState('');
-    const [loadingVerify, setLoadingVerify] = useState(false); // Renamed
-    const [loadingResend, setLoadingResend] = useState(false); // Renamed
+    const [loadingVerify, setLoadingVerify] = useState(false);
+    const [loadingResend, setLoadingResend] = useState(false);
 
     // Determine the *verification* type based on the logical type passed in params
     const verificationType = (logicalOtpType === 'PASSWORD_RESET' || logicalOtpType === OtpType.PASSWORD_RESET)
@@ -54,7 +55,7 @@ function VerifyOtpScreen() {
 
     // --- Verify OTP ---
     const handleVerifyOtp = async () => {
-        if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) { // Added regex check
+        if (!otp || otp.length !== 6 || !/^\d{6}$/.test(otp)) {
             Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter a valid 6-digit OTP.' });
             return;
         }
@@ -74,25 +75,16 @@ function VerifyOtpScreen() {
                 console.error("[VerifyOtpScreen] OTP Verification Error:", error);
                 Toast.show({ type: 'error', text1: 'OTP Verification Failed', text2: error.message || 'Invalid or expired OTP.' });
             } else {
-                // Verification successful
                 console.log("[VerifyOtpScreen] OTP Verification Successful.");
 
                 if (isSignupOtp) {
-                    // *** MODIFICATION START ***
-                    // Signup verified. Navigate immediately to the authenticated flow.
-                    // The App.js listener will eventually pick up the confirmed session too.
                     console.log("[VerifyOtpScreen] Signup OTP success - Navigating to main app flow.");
                     Toast.show({ type: 'success', text1: 'Email Verified!', text2: 'Welcome!' });
-                    // Reset the navigation stack to the authenticated state
-                    // Navigate to CategoryNavigator first if category selection is required
                     navigation.reset({
                         index: 0,
-                        routes: [{ name: 'CategoryNavigator' }], // Or 'AppNavigator' if category selection isn't the next step
+                        routes: [{ name: 'CategoryNavigator' }],
                     });
-                    // *** MODIFICATION END ***
-
                 } else if (verificationType === OtpType.PASSWORD_RESET) {
-                    // Password Reset verified. Navigate to the next screen if provided.
                     if (nextScreen) {
                         console.log("[VerifyOtpScreen] Password Reset OTP success - Navigating to:", nextScreen);
                         Toast.show({ type: 'success', text1: 'OTP Verified', text2: 'You can now set a new password.' });
@@ -100,27 +92,25 @@ function VerifyOtpScreen() {
                     } else {
                         console.error("[VerifyOtpScreen] Password reset OTP verified but 'nextScreen' parameter is missing.");
                         Toast.show({ type: 'error', text1: 'Error', text2: 'Navigation configuration error.' });
-                        navigation.navigate('Signin'); // Fallback
+                        navigation.navigate('Signin');
                     }
                 } else {
                     console.log("[VerifyOtpScreen] OTP verified for an unspecified purpose.");
-                    navigation.navigate('Signin'); // Fallback
+                    navigation.navigate('Signin');
                 }
             }
         } catch (verificationError) {
             console.error("[VerifyOtpScreen] Caught error during verification block:", verificationError);
             Toast.show({ type: 'error', text1: 'Error', text2: 'An unexpected error occurred during verification.' });
         } finally {
-            // Only set loadingVerify to false if NOT a successful signup navigation
-            // to prevent UI flicker before navigation happens.
-            if (!isSignupOtp || (isSignupOtp && !data?.session)) { // Keep loading if signup nav happens
+            if (!isSignupOtp || (isSignupOtp && !data?.session)) {
                 setLoadingVerify(false);
             }
             console.log("[VerifyOtpScreen] handleVerifyOtp finished.");
         }
     };
 
-    // --- Resend OTP --- (Keep existing logic)
+    // --- Resend OTP ---
     const handleResendOtp = async () => {
         if (!email) return;
         setLoadingResend(true);
@@ -150,7 +140,7 @@ function VerifyOtpScreen() {
         }
     };
 
-    // --- Render --- (Keep existing render logic)
+    // --- Render ---
     return (
         <SafeAreaView style={styles.container}>
             {/* Background */}
@@ -161,122 +151,219 @@ function VerifyOtpScreen() {
                 <View style={styles.c2} />
             </View>
 
-            {/* Scrollable Content */}
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-                <BlurView intensity={100} tint="light" style={styles.blurContainer}>
-                    {/* Main Content Area */}
-                    <View style={styles.contentView}>
-                        <Typo size={26} style={styles.text}>{title}</Typo>
-                        <Typo size={16} style={styles.body}>{description}</Typo>
+            {/* Scrollable Content with Keyboard Avoidance */}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardView}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+                        {/* Main Content Area */}
+                        <View style={styles.contentView}>
+                            <Typo size={isSmallDevice ? 22 : 26} style={styles.text}>{title}</Typo>
+                            <Typo size={isSmallDevice ? 14 : 16} style={styles.body}>{description}</Typo>
 
-                        {/* OTP Input */}
-                        <View style={styles.inputView}>
-                            <TextInput
-                                value={otp} onChangeText={setOtp}
-                                placeholder="Enter 6-digit OTP" placeholderTextColor={colors.gray} // Use consistent color
-                                style={styles.input} autoCapitalize="none"
-                                keyboardType="number-pad" maxLength={6} textContentType="oneTimeCode" // Helps autofill
-                                testID="otpInput"
+                            {/* OTP Input */}
+                            <View style={styles.inputView}>
+                                <TextInput
+                                    value={otp}
+                                    onChangeText={setOtp}
+                                    placeholder="000000"
+                                    placeholderTextColor={colors.gray + '60'}
+                                    style={styles.input}
+                                    autoCapitalize="none"
+                                    keyboardType="number-pad"
+                                    maxLength={6}
+                                    textContentType="oneTimeCode"
+                                    autoComplete="one-time-code"
+                                    testID="otpInput"
+                                />
+                            </View>
+
+                            {/* Verify Button */}
+                            <AppButton
+                                onPress={handleVerifyOtp}
+                                label={loadingVerify ? 'Verifying...' : 'Verify Code'}
+                                loading={loadingVerify}
+                                disabled={loadingVerify || loadingResend || otp.length !== 6}
+                                style={styles.actionButton}
                             />
-                        </View>
 
-                        {/* Verify Button */}
-                        <AppButton
-                            onPress={handleVerifyOtp}
-                            label={loadingVerify ? 'Verifying...' : 'Verify Code'}
-                            loading={loadingVerify}
-                            disabled={loadingVerify || loadingResend || otp.length !== 6} // Disable logic
-                            style={styles.actionButton}
-                        />
-
-                        {/* Resend Link */}
-                        <TouchableOpacity style={styles.linkButton} onPress={handleResendOtp} disabled={loadingVerify || loadingResend}>
-                            <Typo style={{ color: loadingResend ? colors.gray : colors.primary }}> {/* Indicate loading */}
-                                {loadingResend ? 'Sending...' : 'Resend Code'}
-                            </Typo>
-                        </TouchableOpacity>
-
-                        {/* Different Email Link (only for password reset) */}
-                        {verificationType === OtpType.PASSWORD_RESET && (
+                            {/* Resend Link */}
                             <TouchableOpacity
                                 style={styles.linkButton}
-                                onPress={() => navigation.canGoBack() && navigation.goBack()}
+                                onPress={handleResendOtp}
                                 disabled={loadingVerify || loadingResend}
                             >
-                                <Typo style={{ color: colors.blue }}>Entered wrong email?</Typo>
+                                <Typo size={isSmallDevice ? 13 : 15} style={{ color: loadingResend ? colors.gray : colors.primary }}>
+                                    {loadingResend ? 'Sending...' : 'Resend Code'}
+                                </Typo>
+                            </TouchableOpacity>
+
+                            {/* Different Email Link (only for password reset) */}
+                            {verificationType === OtpType.PASSWORD_RESET && (
+                                <TouchableOpacity
+                                    style={styles.linkButton}
+                                    onPress={() => navigation.canGoBack() && navigation.goBack()}
+                                    disabled={loadingVerify || loadingResend}
+                                >
+                                    <Typo size={isSmallDevice ? 13 : 15} style={{ color: colors.blue }}>
+                                        Entered wrong email?
+                                    </Typo>
+                                </TouchableOpacity>
+                            )}
+                        </View>
+
+                        {/* Back to Sign In Link */}
+                        {!loadingVerify && !loadingResend && (
+                            <TouchableOpacity
+                                style={styles.bottomLink}
+                                onPress={() => navigation.navigate('Signin')}
+                            >
+                                <Typo size={isSmallDevice ? 13 : 15} style={{ color: colors.blue }}>
+                                    Back to Sign In
+                                </Typo>
                             </TouchableOpacity>
                         )}
-                    </View>
-
-                    {/* Back to Sign In Link */}
-                    {!loadingVerify && !loadingResend && (
-                        <TouchableOpacity
-                            style={styles.bottomLink}
-                            onPress={() => navigation.navigate('Signin')}
-                        >
-                            <Typo style={{ color: colors.blue }}>Back to Sign In</Typo>
-                        </TouchableOpacity>
-                    )}
-                </BlurView>
-            </ScrollView>
+                    </BlurView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
-// --- Styles --- (Keep existing styles)
+// --- Styles ---
 const styles = StyleSheet.create({
-    container: { flex: 1 },
-    blurContainer: {
-        flexGrow: 1, paddingHorizontal: spacingX._20, paddingTop: paddingTop,
-        paddingBottom: spacingY._20, borderRadius: radius._20,
-        marginHorizontal: spacingX._10, marginVertical: spacingY._10,
-        overflow: 'hidden', justifyContent: 'space-between',
+    container: {
+        flex: 1,
     },
-    contentView: { alignItems: 'center', paddingBottom: spacingY._40, },
-    background: { flex: 1, ...StyleSheet.absoluteFillObject, backgroundColor: colors.white },
+    keyboardView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        minHeight: height * 0.9,
+    },
+    blurContainer: {
+        flexGrow: 1,
+        paddingHorizontal: spacingX._20,
+        paddingTop: paddingTop,
+        paddingBottom: spacingY._20,
+        borderRadius: radius._20,
+        marginHorizontal: spacingX._10,
+        marginVertical: spacingY._10,
+        overflow: 'hidden',
+        justifyContent: 'space-between',
+    },
+    contentView: {
+        alignItems: 'center',
+        paddingBottom: spacingY._40,
+        flex: 1,
+        justifyContent: 'center',
+    },
+    background: {
+        flex: 1,
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: colors.white,
+    },
     inputView: {
-        backgroundColor: colors.white, borderRadius: radius._15, marginTop: spacingY._20,
-        shadowColor: colors.lightBlue, shadowOffset: { height: 2, width: 0 },
-        shadowOpacity: 0.1, shadowRadius: 4, elevation: 3,
-        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: colors.white,
+        borderRadius: radius._15,
+        marginTop: spacingY._20,
+        shadowColor: colors.lightBlue,
+        shadowOffset: { height: 2, width: 0 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
         width: '90%',
-        borderWidth: 1, borderColor: colors.lighterGray,
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: colors.lighterGray,
+        minHeight: isSmallDevice ? 56 : 64,
+        justifyContent: 'center',
     },
     input: {
-        paddingVertical: spacingY._15,
+        paddingVertical: Platform.OS === 'ios' ? normalizeY(18) : normalizeY(16),
         paddingHorizontal: spacingX._20,
-        fontSize: normalizeY(16), flex: 1, color: colors.black,
-        height: 55,
-        textAlign: 'center', letterSpacing: 3,
+        fontSize: isSmallDevice ? normalizeY(20) : normalizeY(24),
+        color: colors.black,
+        textAlign: 'center',
+        letterSpacing: isSmallDevice ? 6 : 8,
+        fontWeight: '600',
+        lineHeight: Platform.OS === 'ios' ? normalizeY(28) : normalizeY(32),
+        includeFontPadding: false,
+        textAlignVertical: 'center',
     },
     text: {
-        fontWeight: '600', textAlign: 'center', alignSelf: 'center',
-        marginTop: spacingY._20, marginBottom: spacingY._10,
+        fontWeight: '600',
+        textAlign: 'center',
+        alignSelf: 'center',
+        marginTop: spacingY._20,
+        marginBottom: spacingY._10,
+        color: colors.black,
     },
     body: {
-        textAlign: 'center', alignSelf: 'center', marginBottom: spacingY._20,
-        color: colors.gray, paddingHorizontal: spacingX._10, width: '90%',
+        textAlign: 'center',
+        alignSelf: 'center',
+        marginBottom: spacingY._20,
+        color: colors.gray,
+        paddingHorizontal: spacingX._20,
+        width: '95%',
+        maxWidth: 400,
         lineHeight: normalizeY(22),
     },
     actionButton: {
         marginTop: spacingY._25,
         width: '90%',
+        maxWidth: 400,
     },
     linkButton: {
         alignSelf: 'center',
-        marginTop: spacingY._20,
-        paddingVertical: spacingY._5,
+        marginTop: spacingY._15,
+        paddingVertical: spacingY._8,
+        paddingHorizontal: spacingX._10,
     },
     bottomLink: {
         alignSelf: 'center',
-        paddingVertical: spacingY._10,
-        marginTop: spacingY._20,
+        paddingVertical: spacingY._12,
+        marginTop: spacingY._10,
+        marginBottom: spacingY._10,
     },
     // Background circles
-    c1: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: colors.lightBlue + '50', position: 'absolute', top: '10%', right: '-25%' },
-    c2: { width: width / 1.2, height: width / 1.2, borderRadius: width / 2, backgroundColor: '#fee2e2' + '80', position: 'absolute', bottom: '-20%', left: '-15%', opacity: 0.8 },
-    orangeCircle: { width: width / 1.5, height: width / 1.5, borderRadius: width / 2, backgroundColor: '#fed7aa' + '50', position: 'absolute', right: '-10%', bottom: '5%', opacity: 0.4 },
+    c1: {
+        width: width / 1.5,
+        height: width / 1.5,
+        borderRadius: width / 2,
+        backgroundColor: colors.lightBlue + '50',
+        position: 'absolute',
+        top: '10%',
+        right: '-25%',
+    },
+    c2: {
+        width: width / 1.2,
+        height: width / 1.2,
+        borderRadius: width / 2,
+        backgroundColor: '#fee2e2' + '80',
+        position: 'absolute',
+        bottom: '-20%',
+        left: '-15%',
+        opacity: 0.8,
+    },
+    orangeCircle: {
+        width: width / 1.5,
+        height: width / 1.5,
+        borderRadius: width / 2,
+        backgroundColor: '#fed7aa' + '50',
+        position: 'absolute',
+        right: '-10%',
+        bottom: '5%',
+        opacity: 0.4,
+    },
 });
-
 
 export default VerifyOtpScreen;

@@ -9,6 +9,7 @@ import {
     Dimensions,
     Platform,
     ScrollView,
+    KeyboardAvoidingView,
 } from 'react-native';
 import { BlurView } from 'expo-blur';
 import colors from '../config/colors';
@@ -20,15 +21,15 @@ import { supabase } from '../lib/supabase';
 import { normalizeY } from '../utils/normalize';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
-// No useAuth needed, rely on session
 
 const { width, height } = Dimensions.get('screen');
+const isSmallDevice = height < 700;
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 
 function SetNewPasswordScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { email } = route.params || {}; // Get email passed from VerifyOtpScreen
+    const { email } = route.params || {};
 
     const [newPassword, setNewPassword] = useState('');
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -37,7 +38,7 @@ function SetNewPasswordScreen() {
     const [isConfirmSecure, setIsConfirmSecure] = useState(true);
 
     const handleSetNewPassword = async () => {
-        // --- (Validations remain the same) ---
+        // Validations
         if (!newPassword || !confirmNewPassword) {
             Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter and confirm password.' });
             return;
@@ -53,41 +54,38 @@ function SetNewPasswordScreen() {
 
         setLoading(true);
 
-        // --- (Session check remains the same) ---
+        // Session check
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         console.log("[SetNewPassword] Session Check:", session ? `User: ${session.user.id}` : 'No session', "Error:", sessionError);
 
         if (sessionError || !session?.user) {
-            Toast.show({ type: 'error', text1: 'Authentication Error', text2: 'Session expired or invalid. Please try resetting again.' });
-            // FIX #1: Navigate before sign out
-            navigation.navigate('Signin'); // Navigate to safety
-            await supabase.auth.signOut().catch(console.error); // Ensure sign out
+            Toast.show({
+                type: 'error',
+                text1: 'Authentication Error',
+                text2: 'Session expired or invalid. Please try resetting again.'
+            });
+            navigation.navigate('Signin');
+            await supabase.auth.signOut().catch(console.error);
             setLoading(false);
             return;
         }
 
-        // Store email before session is destroyed
-        const userEmail = session.user.email || email; // Get email from session or params
-
-        // --- (Password update remains the same) ---
+        // Password update
         console.log("[SetNewPassword] Attempting password update...");
         const { error: updateError } = await supabase.auth.updateUser({
             password: newPassword,
         });
 
-        // We no longer set loading to false here, only in the branches
-
         if (updateError) {
             console.error("[SetNewPassword] Password update failed:", updateError);
-            Toast.show({ type: 'error', text1: 'Password Reset Failed', text2: updateError.message });
-
-            // *** --- FIX #2 (Same as #1) --- ***
-            // Navigate BEFORE signing out to avoid crash
+            Toast.show({
+                type: 'error',
+                text1: 'Password Reset Failed',
+                text2: updateError.message
+            });
             navigation.navigate('Signin');
             await supabase.auth.signOut().catch(console.error);
-            // *** --- END FIX --- ***
-
-            setLoading(false); // Set loading false on error
+            setLoading(false);
         } else {
             console.log("[SetNewPassword] Password reset successful.");
             Toast.show({
@@ -96,121 +94,140 @@ function SetNewPasswordScreen() {
                 text2: 'You can now sign in with your new password.',
             });
 
-            // Asynchronously send the password reset confirmation email (from previous step)
-            if (userEmail) {
-                console.log("[SetNewPassword] Sending password reset confirmation...");
-                supabase.functions.invoke('send-password-confirmation', {
-                    body: { email: userEmail }
-                }).then(({ error: emailError }) => {
-                    if (emailError) console.error("[SetNewPassword] Error sending confirmation email:", emailError.message);
-                    else console.log("[SetNewPassword] Confirmation email sent.");
-                });
-            } else {
-                console.warn("[SetNewPassword] Could not get user email to send confirmation.");
-            }
-
-            // *** --- FIX #3 (Same as #1) --- ***
-            // Navigate BEFORE signing out to avoid crash
+            // Navigate and sign out
             navigation.navigate('Signin');
             await supabase.auth.signOut();
-            // *** --- END FIX --- ***
-
-            setLoading(false); // Set loading false on success
+            setLoading(false);
         }
     };
 
-    // --- (Render logic remains exactly the same) ---
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.background}>
                 <View style={[styles.c1, { opacity: 0.5 }]} />
-                <View
-                    style={[styles.orangeCircle, { bottom: '25%', left: '5%', opacity: 0.5 }]}
-                />
+                <View style={[styles.orangeCircle, { bottom: '25%', left: '5%', opacity: 0.5 }]} />
                 <View style={[styles.orangeCircle, { opacity: 0.4 }]} />
                 <View style={styles.c2} />
             </View>
 
-            <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-                <BlurView intensity={100} tint="light" style={styles.blurContainer}>
-                    <View style={styles.contentView}>
-                        <Typo size={26} style={styles.text}>Set New Password</Typo>
-                        <Typo size={16} style={styles.body}>
-                            Enter your new password{email ? ` for ${email}` : ''}.
-                        </Typo>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={styles.keyboardView}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+            >
+                <ScrollView
+                    contentContainerStyle={styles.scrollContent}
+                    keyboardShouldPersistTaps="handled"
+                    showsVerticalScrollIndicator={false}
+                >
+                    <BlurView intensity={100} tint="light" style={styles.blurContainer}>
+                        <View style={styles.contentView}>
+                            <Typo size={isSmallDevice ? 22 : 26} style={styles.text}>
+                                Set New Password
+                            </Typo>
+                            <Typo size={isSmallDevice ? 14 : 16} style={styles.body}>
+                                Enter your new password{email ? ` for ${email}` : ''}.
+                            </Typo>
 
-                        {/* New Password */}
-                        <View style={styles.inputView}>
-                            <TextInput
-                                value={newPassword}
-                                onChangeText={setNewPassword}
-                                placeholder="New Password"
-                                placeholderTextColor="grey"
-                                style={styles.input}
-                                secureTextEntry={isPasswordSecure}
-                                autoCapitalize="none"
-                            />
-                            <TouchableOpacity
-                                onPress={() => setIsPasswordSecure(!isPasswordSecure)}
-                                style={styles.eyeIcon}
-                            >
-                                <Ionicons
-                                    name={isPasswordSecure ? 'eye-off-outline' : 'eye-outline'}
-                                    size={24}
-                                    color="grey"
+                            {/* New Password */}
+                            <View style={styles.inputView}>
+                                <TextInput
+                                    value={newPassword}
+                                    onChangeText={setNewPassword}
+                                    placeholder="New Password"
+                                    placeholderTextColor={colors.gray + '80'}
+                                    style={styles.input}
+                                    secureTextEntry={isPasswordSecure}
+                                    autoCapitalize="none"
+                                    autoComplete="password-new"
+                                    textContentType="newPassword"
                                 />
-                            </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => setIsPasswordSecure(!isPasswordSecure)}
+                                    style={styles.eyeIcon}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name={isPasswordSecure ? 'eye-off-outline' : 'eye-outline'}
+                                        size={24}
+                                        color={colors.gray}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Confirm Password */}
+                            <View style={styles.inputView}>
+                                <TextInput
+                                    value={confirmNewPassword}
+                                    onChangeText={setConfirmNewPassword}
+                                    placeholder="Confirm New Password"
+                                    placeholderTextColor={colors.gray + '80'}
+                                    style={styles.input}
+                                    secureTextEntry={isConfirmSecure}
+                                    autoCapitalize="none"
+                                    autoComplete="password-new"
+                                    textContentType="newPassword"
+                                />
+                                <TouchableOpacity
+                                    onPress={() => setIsConfirmSecure(!isConfirmSecure)}
+                                    style={styles.eyeIcon}
+                                    activeOpacity={0.7}
+                                >
+                                    <Ionicons
+                                        name={isConfirmSecure ? 'eye-off-outline' : 'eye-outline'}
+                                        size={24}
+                                        color={colors.gray}
+                                    />
+                                </TouchableOpacity>
+                            </View>
+
+                            {/* Password Requirements */}
+                            <View style={styles.requirementsView}>
+                                <Typo size={12} style={styles.requirementText}>
+                                    • Password must be at least 6 characters
+                                </Typo>
+                                <Typo size={12} style={styles.requirementText}>
+                                    • Both passwords must match
+                                </Typo>
+                            </View>
+
+                            <AppButton
+                                onPress={handleSetNewPassword}
+                                label={loading ? 'Saving...' : 'Set New Password'}
+                                loading={loading}
+                                disabled={loading || !newPassword || !confirmNewPassword}
+                                style={styles.actionButton}
+                            />
                         </View>
 
-                        {/* Confirm Password */}
-                        <View style={styles.inputView}>
-                            <TextInput
-                                value={confirmNewPassword}
-                                onChangeText={setConfirmNewPassword}
-                                placeholder="Confirm New Password"
-                                placeholderTextColor="grey"
-                                style={styles.input}
-                                secureTextEntry={isConfirmSecure}
-                                autoCapitalize="none"
-                            />
+                        {!loading && (
                             <TouchableOpacity
-                                onPress={() => setIsConfirmSecure(!isConfirmSecure)}
-                                style={styles.eyeIcon}
+                                style={styles.bottomText}
+                                onPress={() => navigation.navigate('Signin')}
                             >
-                                <Ionicons
-                                    name={isConfirmSecure ? 'eye-off-outline' : 'eye-outline'}
-                                    size={24}
-                                    color="grey"
-                                />
+                                <Typo size={isSmallDevice ? 13 : 15} style={{ color: colors.blue }}>
+                                    Back to Sign In
+                                </Typo>
                             </TouchableOpacity>
-                        </View>
-
-                        <AppButton
-                            onPress={handleSetNewPassword}
-                            label={loading ? 'Saving...' : 'Set New Password & Sign In'}
-                            loading={loading}
-                            disabled={loading}
-                            style={styles.actionButton}
-                        />
-                    </View>
-
-                    {!loading && (
-                        <TouchableOpacity
-                            style={styles.bottomText}
-                            onPress={() => navigation.navigate('Signin')}
-                        >
-                            <Typo style={{ color: colors.blue }}>Back to Sign In</Typo>
-                        </TouchableOpacity>
-                    )}
-                </BlurView>
-            </ScrollView>
+                        )}
+                    </BlurView>
+                </ScrollView>
+            </KeyboardAvoidingView>
         </SafeAreaView>
     );
 }
 
-// --- (Styles remain exactly the same) ---
 const styles = StyleSheet.create({
-    container: { flex: 1 },
+    container: {
+        flex: 1
+    },
+    keyboardView: {
+        flex: 1,
+    },
+    scrollContent: {
+        flexGrow: 1,
+        minHeight: height * 0.9,
+    },
     blurContainer: {
         flexGrow: 1,
         paddingHorizontal: spacingX._20,
@@ -222,7 +239,12 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         justifyContent: 'space-between',
     },
-    contentView: { alignItems: 'center' },
+    contentView: {
+        alignItems: 'center',
+        flex: 1,
+        justifyContent: 'center',
+        paddingBottom: spacingY._20,
+    },
     background: {
         flex: 1,
         ...StyleSheet.absoluteFillObject,
@@ -233,48 +255,71 @@ const styles = StyleSheet.create({
         borderRadius: radius._15,
         marginTop: spacingY._15,
         shadowColor: colors.lightBlue,
-        shadowOffset: { height: 1, width: 0 },
+        shadowOffset: { height: 2, width: 0 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
+        shadowRadius: 4,
+        elevation: 3,
         flexDirection: 'row',
         alignItems: 'center',
         paddingRight: spacingX._5,
-        borderWidth: Platform.OS === 'android' ? 0.5 : 0,
-        borderColor: '#0000001A',
-        width: '95%',
+        borderWidth: 1,
+        borderColor: colors.lighterGray,
+        width: '90%',
+        maxWidth: 400,
+        minHeight: isSmallDevice ? 56 : 60,
     },
     input: {
-        paddingVertical: spacingY._10,
+        paddingVertical: Platform.OS === 'ios' ? spacingY._12 : spacingY._10,
         paddingHorizontal: spacingX._20,
-        fontSize: normalizeY(16),
+        fontSize: isSmallDevice ? normalizeY(14) : normalizeY(16),
         flex: 1,
         color: colors.black,
-        height: 55,
+        includeFontPadding: false,
+        textAlignVertical: 'center',
     },
-    eyeIcon: { paddingHorizontal: spacingX._15 },
+    eyeIcon: {
+        paddingHorizontal: spacingX._15,
+        paddingVertical: spacingY._10,
+    },
     text: {
         fontWeight: '600',
         textAlign: 'center',
         alignSelf: 'center',
-        marginTop: spacingY._10,
+        marginTop: spacingY._20,
         marginBottom: spacingY._10,
+        color: colors.black,
     },
     body: {
         textAlign: 'center',
         alignSelf: 'center',
         marginBottom: spacingY._20,
         color: colors.gray,
+        paddingHorizontal: spacingX._20,
+        width: '90%',
+        maxWidth: 400,
+        lineHeight: normalizeY(22),
+    },
+    requirementsView: {
+        width: '90%',
+        maxWidth: 400,
+        marginTop: spacingY._10,
         paddingHorizontal: spacingX._10,
-        width: '95%',
+    },
+    requirementText: {
+        color: colors.gray,
+        marginVertical: spacingY._2,
+        lineHeight: normalizeY(18),
     },
     actionButton: {
-        backgroundColor: colors.primary,
-        borderRadius: radius._12,
         marginTop: spacingY._20,
-        width: '95%',
+        width: '90%',
+        maxWidth: 400,
     },
-    bottomText: { alignSelf: 'center', paddingBottom: spacingY._10 },
+    bottomText: {
+        alignSelf: 'center',
+        paddingVertical: spacingY._12,
+        marginTop: spacingY._10,
+    },
     c1: {
         width: width / 1.5,
         height: width / 1.5,
