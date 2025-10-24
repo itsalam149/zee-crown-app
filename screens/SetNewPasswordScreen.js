@@ -20,7 +20,7 @@ import { supabase } from '../lib/supabase';
 import { normalizeY } from '../utils/normalize';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
-import useAuth from '../auth/useAuth'; // Import useAuth to check current user
+// No useAuth needed, rely on session
 
 const { width, height } = Dimensions.get('screen');
 let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
@@ -28,8 +28,7 @@ let paddingTop = Platform.OS === 'ios' ? height * 0.07 : spacingY._10;
 function SetNewPasswordScreen() {
     const navigation = useNavigation();
     const route = useRoute();
-    const { user } = useAuth(); // Get current user state if needed for checks
-    const { email } = route.params || {};
+    const { email } = route.params || {}; // Get email passed from VerifyOtpScreen
 
     const [newPassword, setNewPassword] = useState('');
     const [confirmNewPassword, setConfirmNewPassword] = useState('');
@@ -38,7 +37,7 @@ function SetNewPasswordScreen() {
     const [isConfirmSecure, setIsConfirmSecure] = useState(true);
 
     const handleSetNewPassword = async () => {
-        // --- Input Validations ---
+        // --- (Validations remain the same) ---
         if (!newPassword || !confirmNewPassword) {
             Toast.show({ type: 'error', text1: 'Input Error', text2: 'Please enter and confirm password.' });
             return;
@@ -54,32 +53,41 @@ function SetNewPasswordScreen() {
 
         setLoading(true);
 
-        // --- Check if user is authenticated (should be after OTP verification) ---
+        // --- (Session check remains the same) ---
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         console.log("[SetNewPassword] Session Check:", session ? `User: ${session.user.id}` : 'No session', "Error:", sessionError);
 
         if (sessionError || !session?.user) {
             Toast.show({ type: 'error', text1: 'Authentication Error', text2: 'Session expired or invalid. Please try resetting again.' });
+            // FIX #1: Navigate before sign out
+            navigation.navigate('Signin'); // Navigate to safety
             await supabase.auth.signOut().catch(console.error); // Ensure sign out
-            navigation.navigate('Signin');
             setLoading(false);
             return;
         }
 
-        // --- Update User Password ---
+        // Store email before session is destroyed
+        const userEmail = session.user.email || email; // Get email from session or params
+
+        // --- (Password update remains the same) ---
         console.log("[SetNewPassword] Attempting password update...");
         const { error: updateError } = await supabase.auth.updateUser({
             password: newPassword,
         });
 
-        setLoading(false);
+        // We no longer set loading to false here, only in the branches
 
         if (updateError) {
             console.error("[SetNewPassword] Password update failed:", updateError);
             Toast.show({ type: 'error', text1: 'Password Reset Failed', text2: updateError.message });
-            // FIX: Explicitly sign out if update fails, as the temporary session might be invalid
+
+            // *** --- FIX #2 (Same as #1) --- ***
+            // Navigate BEFORE signing out to avoid crash
+            navigation.navigate('Signin');
             await supabase.auth.signOut().catch(console.error);
-            navigation.navigate('Signin'); // Navigate back to sign in
+            // *** --- END FIX --- ***
+
+            setLoading(false); // Set loading false on error
         } else {
             console.log("[SetNewPassword] Password reset successful.");
             Toast.show({
@@ -87,14 +95,31 @@ function SetNewPasswordScreen() {
                 text1: 'Password Reset Successful',
                 text2: 'You can now sign in with your new password.',
             });
-            // FIX: Ensure user is signed out before navigating to Signin
-            // This clears the temporary session used for the update.
+
+            // Asynchronously send the password reset confirmation email (from previous step)
+            if (userEmail) {
+                console.log("[SetNewPassword] Sending password reset confirmation...");
+                supabase.functions.invoke('send-password-confirmation', {
+                    body: { email: userEmail }
+                }).then(({ error: emailError }) => {
+                    if (emailError) console.error("[SetNewPassword] Error sending confirmation email:", emailError.message);
+                    else console.log("[SetNewPassword] Confirmation email sent.");
+                });
+            } else {
+                console.warn("[SetNewPassword] Could not get user email to send confirmation.");
+            }
+
+            // *** --- FIX #3 (Same as #1) --- ***
+            // Navigate BEFORE signing out to avoid crash
+            navigation.navigate('Signin');
             await supabase.auth.signOut();
-            navigation.navigate('Signin'); // Navigate to Signin screen
+            // *** --- END FIX --- ***
+
+            setLoading(false); // Set loading false on success
         }
     };
 
-
+    // --- (Render logic remains exactly the same) ---
     return (
         <SafeAreaView style={styles.container}>
             <View style={styles.background}>
@@ -120,7 +145,7 @@ function SetNewPasswordScreen() {
                                 value={newPassword}
                                 onChangeText={setNewPassword}
                                 placeholder="New Password"
-                                placeholderTextColor="grey" // Added placeholder color
+                                placeholderTextColor="grey"
                                 style={styles.input}
                                 secureTextEntry={isPasswordSecure}
                                 autoCapitalize="none"
@@ -143,7 +168,7 @@ function SetNewPasswordScreen() {
                                 value={confirmNewPassword}
                                 onChangeText={setConfirmNewPassword}
                                 placeholder="Confirm New Password"
-                                placeholderTextColor="grey" // Added placeholder color
+                                placeholderTextColor="grey"
                                 style={styles.input}
                                 secureTextEntry={isConfirmSecure}
                                 autoCapitalize="none"
@@ -183,7 +208,7 @@ function SetNewPasswordScreen() {
     );
 }
 
-// Styles remain unchanged
+// --- (Styles remain exactly the same) ---
 const styles = StyleSheet.create({
     container: { flex: 1 },
     blurContainer: {
