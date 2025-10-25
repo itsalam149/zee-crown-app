@@ -136,7 +136,7 @@ export default function CategoryScreen() {
     const CategoryCard = ({ item, index }) => {
         const cardAnim = useRef(new Animated.Value(0)).current;
         const pressAnim = useRef(new Animated.Value(1)).current;
-        const shimmerAnim = useRef(new Animated.Value(0)).current;
+        // const shimmerAnim = useRef(new Animated.Value(0)).current; // <-- REMOVED
         const glowAnim = useRef(new Animated.Value(0)).current;
 
         useEffect(() => {
@@ -147,12 +147,14 @@ export default function CategoryScreen() {
                 useNativeDriver: true,
             }).start();
 
+            /* <-- REMOVED SHIMMER ANIMATION
             Animated.loop(
                 Animated.sequence([
                     Animated.timing(shimmerAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
                     Animated.timing(shimmerAnim, { toValue: 0, duration: 2500, useNativeDriver: true }),
                 ])
             ).start();
+            */
 
             Animated.loop(
                 Animated.sequence([
@@ -172,7 +174,7 @@ export default function CategoryScreen() {
 
         const isLargeCard = index < 2;
 
-        const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [-300, 300] });
+        // const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [-300, 300] }); // <-- REMOVED
         const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
 
         return (
@@ -209,7 +211,7 @@ export default function CategoryScreen() {
                         <View style={styles.stripesPattern}>
                             <View style={styles.stripe} /><View style={[styles.stripe, { left: 60 }]} /><View style={[styles.stripe, { left: 120 }]} /><View style={[styles.stripe, { left: 180 }]} />
                         </View>
-                        <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} />
+                        {/* <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} /> */} {/* <-- REMOVED */}
                         <View style={styles.cardContent}>
                             <View style={styles.textSection}>
                                 <Text style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}>{item.displayName || item.name}</Text>
@@ -484,6 +486,7 @@ const styles = StyleSheet.create({
         left: 0,
         top: -50
     },
+    /* <-- REMOVED SHIMMER STYLE
     shimmer: {
         position: 'absolute',
         top: 0,
@@ -493,6 +496,7 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255, 255, 255, 0.25)',
         transform: [{ skewX: '-20deg' }],
     },
+    */
     cardContent: {
         flexDirection: 'row',
         padding: 20,

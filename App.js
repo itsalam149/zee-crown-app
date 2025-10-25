@@ -25,7 +25,9 @@ Notifications.setNotificationHandler({
 });
 
 // --- Register Push Notifications ---
-async function registerForPushNotificationsAsync() {
+async function registerForPushNotificationsAsync(userId) {
+  if (!userId) return; // Don't run if there's no user ID
+
   let token;
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
@@ -43,15 +45,29 @@ async function registerForPushNotificationsAsync() {
     finalStatus = status;
   }
 
-  if (finalStatus !== 'granted') return;
+  if (finalStatus !== 'granted') {
+    console.log('Failed to get push token for push notification!');
+    return;
+  }
 
   const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!projectId) return;
+  if (!projectId) {
+    console.log('Project ID not found. Cannot get push token.');
+    return;
+  }
 
   try {
     token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
-  } catch {
+  } catch (e) {
+    console.error('Error getting push token:', e);
     return;
+  }
+
+  if (token) {
+    // Upsert the token to the user's profile
+    await supabase
+      .from('profiles')
+      .upsert({ id: userId, expo_push_token: token }, { onConflict: 'id' });
   }
 
   return token;
@@ -75,6 +91,7 @@ export default function App() {
       setAuthState(prev => ({ ...prev, isLoading: true }));
 
       try {
+        // THIS IS THE LINE THAT LOADS THE SAVED SESSION
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         if (error) throw error;
 
@@ -88,8 +105,15 @@ export default function App() {
           isPasswordRecovery: false,
         });
 
-        if (!authenticated) setCategoryContextValue(null);
-      } catch {
+        if (authenticated) {
+          // Register for push notifications on app start if logged in
+          await registerForPushNotificationsAsync(initialSession.user.id);
+        } else {
+          setCategoryContextValue(null);
+        }
+
+      } catch (e) {
+        console.error('Error initializing session:', e);
         setAuthState({
           session: null,
           isAuthenticated: false,
@@ -100,8 +124,10 @@ export default function App() {
       }
     };
 
+    // THIS RUNS THE FUNCTION WHEN THE APP STARTS
     initializeSession();
 
+    // This listener handles changes *after* the app is open (like logout)
     const { data: authListener } = supabase.auth.onAuthStateChange(async (event, currentSession) => {
       const confirmed = !!currentSession?.user?.email_confirmed_at;
       const authenticated = !!(currentSession && confirmed);
@@ -120,12 +146,7 @@ export default function App() {
       }
 
       if (event === 'SIGNED_IN' && authenticated) {
-        const token = await registerForPushNotificationsAsync();
-        if (token && currentSession?.user?.id) {
-          await supabase
-            .from('profiles')
-            .upsert({ id: currentSession.user.id, expo_push_token: token }, { onConflict: 'id' });
-        }
+        await registerForPushNotificationsAsync(currentSession.user.id);
       }
     });
 
