@@ -1,6 +1,11 @@
 // app.config.js
 import 'dotenv/config';
 
+// Read the environment variable passed by EAS CLI (if it exists)
+// We won't use this directly in the config now, but it's good practice
+// to be aware of it if other parts of your build process need it.
+// const googleServicesJsonContent = process.env.GOOGLE_SERVICES_JSON;
+
 export default {
     expo: {
         name: 'Zee Crown',
@@ -13,10 +18,10 @@ export default {
         experiments: {
             tsconfigPaths: true,
         },
-        // --- MODIFICATION: The correct plugin is now here ---
         plugins: [
             'expo-asset',
             'expo-font',
+            // Make sure this plugin is actually needed for your project.
             '@react-native-firebase/app'
         ],
         orientation: 'portrait',
@@ -30,6 +35,8 @@ export default {
         assetBundlePatterns: ['**/*'],
         ios: {
             supportsTablet: true,
+            // Add googleServicesFile for iOS if you use Firebase there too
+            // googleServicesFile: './GoogleService-Info.plist',
         },
         android: {
             adaptiveIcon: {
@@ -37,10 +44,16 @@ export default {
                 backgroundColor: '#ffffff',
             },
             package: 'com.alam.zeecrown',
-            // --- This key is required by the @react-native-firebase/app plugin ---
-            googleServicesFile: './google-services.json'
+            // --- MODIFICATION START ---
+            // Always provide the path. EAS Build will create this file
+            // using the GOOGLE_SERVICES_JSON secret before the plugin runs.
+            googleServicesFile: './google-services.json',
+            // Remove the googleServicesJson field, as the plugin
+            // primarily looks for the file path during prebuild.
+            // googleServicesJson: googleServicesJsonContent,
+            // --- MODIFICATION END ---
         },
-        newArchEnabled: true,
+        // newArchEnabled: true, // Re-evaluate if needed, can sometimes cause issues. Consider disabling if problems persist.
         extra: {
             supabaseUrl: process.env.EXPO_PUBLIC_SUPABASE_URL,
             supabaseAnonKey: process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY,

@@ -12,7 +12,13 @@
       "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true
+      "autoIncrement": true,
+      // --- CHANGE THIS LINE ---
+      "resourceClass": "medium", // Use "medium", "large", or "default"
+      // --- END CHANGE ---
+      "env": {
+        "GOOGLE_SERVICES_JSON": "@GOOGLE_SERVICES_JSON"
+      }
     }
   },
   "submit": {
