@@ -13,9 +13,10 @@ import {
     Platform
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { SafeAreaView } from 'react-native-safe-area-context';
+// <-- FIX 1: Import useSafeAreaInsets
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import AuthContext from '../auth/AuthContext'; // Adjust path if needed
-import { useNavigation } from '@react-navigation/native'; // <-- Import useNavigation
+import { useNavigation } from '@react-navigation/native';
 
 const { width } = Dimensions.get('window');
 
@@ -68,7 +69,8 @@ export default function CategoryScreen() {
     const logoRotate = useRef(new Animated.Value(0)).current;
     const floatAnim = useRef(new Animated.Value(0)).current;
     const { setCategory } = useContext(AuthContext);
-    const navigation = useNavigation(); // <-- Get navigation object
+    const navigation = useNavigation();
+    const { bottom } = useSafeAreaInsets(); // <-- FIX 2: Get the bottom inset size
 
     useEffect(() => {
         Animated.parallel([
@@ -123,20 +125,16 @@ export default function CategoryScreen() {
         ).start();
     }, []);
 
-    // *** MODIFIED FUNCTION ***
     const handleCategoryPress = (item) => {
         setCategory(item.name); // Update the category context
-        // Use setTimeout to ensure state update potentially finishes before navigating
         setTimeout(() => {
             navigation.navigate('AppNavigator'); // Navigate to the main app flow
-        }, 0); // A timeout of 0ms pushes this to the next event loop tick
+        }, 0);
     };
-    // *************************
 
     const CategoryCard = ({ item, index }) => {
         const cardAnim = useRef(new Animated.Value(0)).current;
         const pressAnim = useRef(new Animated.Value(1)).current;
-        // const shimmerAnim = useRef(new Animated.Value(0)).current; // <-- REMOVED
         const glowAnim = useRef(new Animated.Value(0)).current;
 
         useEffect(() => {
@@ -146,15 +144,6 @@ export default function CategoryScreen() {
                 delay: index * 150,
                 useNativeDriver: true,
             }).start();
-
-            /* <-- REMOVED SHIMMER ANIMATION
-            Animated.loop(
-                Animated.sequence([
-                    Animated.timing(shimmerAnim, { toValue: 1, duration: 2500, useNativeDriver: true }),
-                    Animated.timing(shimmerAnim, { toValue: 0, duration: 2500, useNativeDriver: true }),
-                ])
-            ).start();
-            */
 
             Animated.loop(
                 Animated.sequence([
@@ -173,8 +162,6 @@ export default function CategoryScreen() {
         };
 
         const isLargeCard = index < 2;
-
-        // const shimmerTranslate = shimmerAnim.interpolate({ inputRange: [0, 1], outputRange: [-300, 300] }); // <-- REMOVED
         const glowOpacity = glowAnim.interpolate({ inputRange: [0, 1], outputRange: [0.3, 0.7] });
 
         return (
@@ -211,7 +198,6 @@ export default function CategoryScreen() {
                         <View style={styles.stripesPattern}>
                             <View style={styles.stripe} /><View style={[styles.stripe, { left: 60 }]} /><View style={[styles.stripe, { left: 120 }]} /><View style={[styles.stripe, { left: 180 }]} />
                         </View>
-                        {/* <Animated.View style={[styles.shimmer, { transform: [{ translateX: shimmerTranslate }] }]} /> */} {/* <-- REMOVED */}
                         <View style={styles.cardContent}>
                             <View style={styles.textSection}>
                                 <Text style={[styles.categoryName, isLargeCard && styles.largeCategoryName]}>{item.displayName || item.name}</Text>
@@ -254,7 +240,12 @@ export default function CategoryScreen() {
                         </View>
                     </Animated.View>
                 </LinearGradient>
-                <ScrollView style={styles.scrollContainer} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+                <ScrollView
+                    style={styles.scrollContainer}
+                    showsVerticalScrollIndicator={false}
+                    // <-- FIX 3: Apply the bottom padding here
+                    contentContainerStyle={[styles.scrollContent, { paddingBottom: 30 + bottom }]}
+                >
                     {categories.slice(0, 2).map((item, index) => (<CategoryCard key={index} item={item} index={index} />))}
                     <View style={styles.smallCardsRow}>{categories.slice(2, 4).map((item, index) => (<CategoryCard key={index + 2} item={item} index={index + 2} />))}</View>
                     <View style={styles.footerSection}>
@@ -411,7 +402,7 @@ const styles = StyleSheet.create({
     scrollContent: {
         padding: 18,
         paddingTop: 24,
-        paddingBottom: 30
+        paddingBottom: 30 // This 30 is the original bottom padding
     },
     largeCardContainer: {
         marginBottom: 18,
@@ -486,17 +477,6 @@ const styles = StyleSheet.create({
         left: 0,
         top: -50
     },
-    /* <-- REMOVED SHIMMER STYLE
-    shimmer: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        width: 150,
-        height: '100%',
-        backgroundColor: 'rgba(255, 255, 255, 0.25)',
-        transform: [{ skewX: '-20deg' }],
-    },
-    */
     cardContent: {
         flexDirection: 'row',
         padding: 20,
@@ -595,7 +575,7 @@ const styles = StyleSheet.create({
     },
     footerSection: {
         marginTop: 20,
-        marginBottom: 20,
+        // marginBottom: 20, // This is now controlled by the scrollview's contentContainerStyle
         alignItems: 'center',
     },
     footerGradient: {

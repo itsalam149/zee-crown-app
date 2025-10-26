@@ -141,7 +141,9 @@ export default function App() {
         isLoading: false,
       }));
 
-      if ((!authenticated || event === 'SIGNED_OUT') && categoryContextValue !== null) {
+      // *** FIX 1: This logic is simplified to remove the dependency ***
+      if (!authenticated || event === 'SIGNED_OUT') {
+        // If user is signed out, *always* reset the category.
         setCategoryContextValue(null);
       }
 
@@ -153,7 +155,7 @@ export default function App() {
     return () => {
       authListener?.subscription?.unsubscribe?.();
     };
-  }, [categoryContextValue]);
+  }, []); // *** FIX 2: Dependency array is now empty. This is the main fix. ***
 
   // --- Notifications ---
   useEffect(() => {

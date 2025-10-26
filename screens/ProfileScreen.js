@@ -7,13 +7,14 @@ import Typo from 'components/Typo';
 import colors from 'config/colors';
 import { radius, spacingX, spacingY } from 'config/spacing';
 import React, { useCallback, useState, useEffect } from 'react';
-// Changed: Imported Image
 import { View, StyleSheet, TouchableOpacity, Alert, ScrollView, Image } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 import { normalizeY } from 'utils/normalize';
 import { supabase } from '../lib/supabase';
-// Added: Import the icon from assets
-import AppIcon from '../assets/icon.png'; // This is the icon for the top-left
+import AppIcon from '../assets/icon.png';
+
+// This lifts the content above the tab bar.
+const TAB_BAR_EXTRA_PADDING = 120;
 
 function ProfileScreen(props) {
   const [key, setKey] = useState(0);
@@ -50,7 +51,6 @@ function ProfileScreen(props) {
     }
   };
 
-  // Reinstated: getInitials function for the profile avatar
   const getInitials = (name) => {
     if (!name) return '';
     const names = name.split(' ');
@@ -59,10 +59,24 @@ function ProfileScreen(props) {
   };
 
   const handleSignOut = async () => {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      Alert.alert('Sign Out Error', error.message);
-    }
+    // --- Added Alert Confirmation ---
+    Alert.alert(
+      "Log Out",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Log Out",
+          style: "destructive",
+          onPress: async () => {
+            const { error } = await supabase.auth.signOut();
+            if (error) {
+              Alert.alert('Sign Out Error', error.message);
+            }
+          }
+        }
+      ]
+    );
   };
 
   const Row = ({ icon, title, iconColor, index, onPress }) => {
@@ -90,17 +104,15 @@ function ProfileScreen(props) {
 
   return (
     <ScreenComponent style={styles.container}>
-      {/* New: Header section for the top-left icon */}
       <View style={styles.headerContainer}>
         <Image source={AppIcon} style={styles.headerIcon} />
       </View>
 
-      <ScrollView contentContainerStyle={{ paddingBottom: spacingY._30 }}>
-        {/* The 24 height view is no longer necessary as the headerContainer adds spacing */}
-        {/* <View style={{ height: 24 }} /> */}
-
+      <ScrollView
+        contentContainerStyle={{ paddingBottom: TAB_BAR_EXTRA_PADDING }}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.topRow}>
-          {/* Reinstated: Profile avatar with initials */}
           <View style={styles.avatarContainer}>
             <Typo size={40} style={styles.avatarText}>
               {getInitials(profile?.full_name)}
@@ -142,7 +154,7 @@ function ProfileScreen(props) {
             />
           </View>
 
-          <View style={[styles.bottomContainer, { marginBottom: '30%' }]}>
+          <View style={styles.bottomContainer}>
             <Row
               title={'Help'}
               iconColor={'#d1d1d1'}
@@ -151,11 +163,21 @@ function ProfileScreen(props) {
               onPress={() => navigation.navigate('HelpScreen')}
             />
 
+            {/* --- FIX: Added Privacy Policy Row --- */}
+            <Row
+              title={'Privacy Policy'}
+              iconColor={'#cfefff'}
+              icon={<Ionicons name="shield-checkmark-outline" size={24} color={'#007bff'} />}
+              index={4}
+              onPress={() => navigation.navigate('PrivacyPolicy')}
+            />
+
             <Row
               title={'Log out'}
               iconColor={'#d1d1d1'}
               icon={<MaterialCommunityIcons name="logout" size={24} color={colors.black} />}
-              index={4}
+              // --- FIX: Updated index ---
+              index={5}
               onPress={handleSignOut}
             />
           </View>
@@ -169,25 +191,23 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: spacingX._20,
   },
-  // Added: Styles for the new header and icon
   headerContainer: {
-    paddingTop: spacingY._15, // Adjust top padding as needed
-    paddingBottom: spacingY._10, // Adjust bottom padding as needed
-    alignItems: 'flex-start', // Align content to the left
+    paddingTop: spacingY._15,
+    paddingBottom: spacingY._10,
+    alignItems: 'flex-start',
   },
   headerIcon: {
-    width: 45, // Adjust size as needed
-    height: 45, // Adjust size as needed
-    borderRadius: 12, // Optional: for rounded corners
-    resizeMode: 'contain', // Or 'cover' depending on your icon's aspect ratio
+    width: 45,
+    height: 45,
+    borderRadius: 12,
+    resizeMode: 'contain',
   },
   topRow: {
     marginBottom: normalizeY(25),
-    alignItems: 'center', // Keep this centered for the avatar and text below the header
+    alignItems: 'center',
     gap: spacingX._10,
-    marginTop: '2%', // Adjust as needed
+    marginTop: '2%',
   },
-  // Reinstated: avatarContainer styles
   avatarContainer: {
     height: normalizeY(110),
     width: normalizeY(110),
@@ -203,7 +223,6 @@ const styles = StyleSheet.create({
     shadowRadius: 5,
     elevation: 8,
   },
-  // Reinstated: avatarText style
   avatarText: {
     color: colors.white,
     fontWeight: 'bold',

@@ -1,6 +1,8 @@
 // components/NewBottomTab.js
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
+// --- FIX 1: Import useSafeAreaInsets ---
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
 import colors from '../config/colors'; // Corrected path
 import { normalizeY } from '../utils/normalize';
@@ -8,10 +10,15 @@ import Animated, { useAnimatedStyle, withSpring, withTiming, interpolate } from 
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
+const BOTTOM_MARGIN_ABOVE_SAFE_AREA = 15; // How much space you want *between* the nav bar and your tab bar
 
 const NewBottomTab = ({ state, descriptors, navigation }) => {
+  // --- FIX 2: Get the bottom inset ---
+  const insets = useSafeAreaInsets();
+
   return (
-    <View style={styles.container}>
+    // --- FIX 3: Apply the dynamic bottom style ---
+    <View style={[styles.container, { bottom: insets.bottom + BOTTOM_MARGIN_ABOVE_SAFE_AREA }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
         const label = options.tabBarLabel !== undefined ? options.tabBarLabel : options.title !== undefined ? options.title : route.name;
@@ -92,21 +99,22 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     position: 'absolute',
-    bottom: Platform.OS === 'ios' ? 35 : 25, // Adjust for iOS notch area
+    // --- FIX 4: Removed the fixed bottom value ---
+    // bottom: Platform.OS === 'ios' ? 35 : 25, 
     left: 20,
     right: 20,
-    height: 75, // Slightly taller for better aesthetics
-    backgroundColor: 'rgba(255, 255, 255, 0.95)', // Subtle translucency
-    borderRadius: 38, // More curved edges
-    elevation: 12, // More pronounced lift
+    height: 75,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderRadius: 38,
+    elevation: 12,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 }, // Stronger shadow for depth
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
     shadowRadius: 15,
     justifyContent: 'space-around',
     alignItems: 'center',
-    borderWidth: StyleSheet.hairlineWidth, // Thin border
-    borderColor: 'rgba(0, 0, 0, 0.08)', // Soft border color
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: 'rgba(0, 0, 0, 0.08)',
   },
   tabButton: {
     flex: 1,
@@ -130,7 +138,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     position: 'absolute',
     bottom: 10,
-    // Color handled by animated style, but default for non-focused
     color: colors.gray,
   },
 });
