@@ -24,4 +24,4 @@ android
 
 .env
 
-.apk
+.apk*.apk
