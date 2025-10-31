@@ -1,7 +1,6 @@
 // components/NewBottomTab.js
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, Dimensions, Platform } from 'react-native';
-// --- FIX 1: Import useSafeAreaInsets ---
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AntDesign, Feather, Ionicons } from '@expo/vector-icons';
 import colors from '../config/colors'; // Corrected path
@@ -10,14 +9,12 @@ import Animated, { useAnimatedStyle, withSpring, withTiming, interpolate } from 
 import * as Haptics from 'expo-haptics';
 
 const { width } = Dimensions.get('window');
-const BOTTOM_MARGIN_ABOVE_SAFE_AREA = 15; // How much space you want *between* the nav bar and your tab bar
+const BOTTOM_MARGIN_ABOVE_SAFE_AREA = 15;
 
 const NewBottomTab = ({ state, descriptors, navigation }) => {
-  // --- FIX 2: Get the bottom inset ---
   const insets = useSafeAreaInsets();
 
   return (
-    // --- FIX 3: Apply the dynamic bottom style ---
     <View style={[styles.container, { bottom: insets.bottom + BOTTOM_MARGIN_ABOVE_SAFE_AREA }]}>
       {state.routes.map((route, index) => {
         const { options } = descriptors[route.key];
@@ -34,11 +31,11 @@ const NewBottomTab = ({ state, descriptors, navigation }) => {
           iconName = 'shopping-cart';
           IconComponent = Feather;
         } else if (route.name === 'Profile') {
-          iconName = 'person-outline'; // Using Ionicons for consistency here
+          iconName = 'person-outline';
         }
 
         const onPress = () => {
-          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium); // Haptic feedback
+          Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
           const event = navigation.emit({
             type: 'tabPress',
             target: route.key,
@@ -51,19 +48,16 @@ const NewBottomTab = ({ state, descriptors, navigation }) => {
         };
 
         const animatedIconContainerStyle = useAnimatedStyle(() => {
-          const translateY = withSpring(isFocused ? -20 : 0, {
-            damping: 15,
-            stiffness: 120,
+          const translateY = withTiming(isFocused ? -20 : 0, {
+            duration: 250,
           });
-          const scale = withSpring(isFocused ? 1.2 : 1, {
-            damping: 15,
-            stiffness: 120,
+          const scale = withTiming(isFocused ? 1.2 : 1, {
+            duration: 250,
           });
           return {
             transform: [{ translateY }, { scale }],
             backgroundColor: withTiming(isFocused ? colors.primary : 'transparent', { duration: 200 }),
-            shadowColor: withTiming(isFocused ? colors.primary : '#000', { duration: 200 }),
-            shadowOpacity: withTiming(isFocused ? 0.4 : 0.1, { duration: 200 }),
+            // --- SHADOWS REMOVED ---
           };
         });
 
@@ -99,18 +93,18 @@ const styles = StyleSheet.create({
   container: {
     flexDirection: 'row',
     position: 'absolute',
-    // --- FIX 4: Removed the fixed bottom value ---
-    // bottom: Platform.OS === 'ios' ? 35 : 25, 
     left: 20,
     right: 20,
     height: 75,
     backgroundColor: 'rgba(255, 255, 255, 0.95)',
     borderRadius: 38,
-    elevation: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 15,
+    // --- SHADOWS REMOVED ---
+    // elevation: 12,
+    // shadowColor: '#000',
+    // shadowOffset: { width: 0, height: 6 },
+    // shadowOpacity: 0.25,
+    // shadowRadius: 15,
+    // --- END SHADOWS REMOVED ---
     justifyContent: 'space-around',
     alignItems: 'center',
     borderWidth: StyleSheet.hairlineWidth,
@@ -129,9 +123,11 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     position: 'absolute',
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
-    elevation: 8,
+    // --- SHADOWS REMOVED ---
+    // shadowOffset: { width: 0, height: 2 },
+    // shadowRadius: 4,
+    // elevation: 8,
+    // --- END SHADOWS REMOVED ---
   },
   label: {
     fontSize: normalizeY(11),
